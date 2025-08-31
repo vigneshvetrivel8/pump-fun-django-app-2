@@ -14,9 +14,24 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+# from django.contrib import admin
+# from django.urls import path
+
+# urlpatterns = [
+#     path('admin/', admin.site.urls),
+# ]
+
+########################################################
+# pumpfunproject/urls.py
+
 from django.contrib import admin
 from django.urls import path
+from pumplistener.views import view_log_file # <--- ADD THIS IMPORT
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+
+    # ADD THIS LINE: Creates a URL to access your log view
+    # You can change 'view-log/' to any path you want.
+    path('view-log/', view_log_file, name='view_log'),
 ]
