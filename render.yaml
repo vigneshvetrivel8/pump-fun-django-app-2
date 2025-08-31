@@ -1,0 +1,20 @@
+# render.yaml
+
+services:
+  # A Web Service for your Django App
+  - type: web
+    name: my-django-app
+    env: python
+    plan: free
+    # Build command with swap file to prevent out-of-memory errors
+    buildCommand: |
+      fallocate -l 1G /swapfile
+      chmod 600 /swapfile
+      mkswap /swapfile
+      swapon /swapfile
+      pip install -r requirements.txt
+    # ⚠️ CRITICAL: Replace 'pumpfunproject.wsgi' with your project's name!
+    startCommand: "gunicorn pumpfunproject.wsgi"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.4
