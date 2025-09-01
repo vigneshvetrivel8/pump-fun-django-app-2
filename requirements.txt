@@ -2,3 +2,6 @@
 django
 gunicorn
 websockets
+psycopg2-binary
+dj-database-url
+asgiref

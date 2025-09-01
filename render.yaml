@@ -13,6 +13,7 @@ services:
       mkswap /swapfile
       swapon /swapfile
       pip install -r requirements.txt
+      python manage.py migrate 
     # ⚠️ CRITICAL: Replace 'pumpfunproject.wsgi' with your project's name!
     startCommand: "gunicorn pumpfunproject.wsgi"
     envVars:

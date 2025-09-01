@@ -115,10 +115,23 @@ import json
 import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from asgiref.sync import sync_to_async # <--- ADD THIS
+from .models import Token # <--- ADD THIS
 
 # --- CONFIGURATION ---
 PUMPORTAL_WSS = "wss://pumpportal.fun/api/data"
 LOG_FILE = 'token_log.txt' # <--- CHANGED: Define the log file name
+
+# --- ADD THIS HELPER FUNCTION ---
+@sync_to_async
+def save_token_to_db(token_data):
+    """Safely saves a token to the database from an async context."""
+    # Check if a token with this mint address already exists
+    if not Token.objects.filter(mint_address=token_data['mint_address']).exists():
+        token = Token.objects.create(**token_data)
+        print(f"✅ Saved to DB: {token.name} ({token.symbol})")
+    else:
+        print(f"⚪️ Duplicate, not saved: {token_data['name']}")
 
 async def pump_fun_listener():
     print("🚀 Starting Pump.fun listener (in-thread)...")
@@ -130,32 +143,51 @@ async def pump_fun_listener():
             print("✅ Subscribed to new tokens (in-thread).")
             while True:
                 try:
+                    ########################################################################################################
+#                     message = await websocket.recv()
+#                     data = json.loads(message)
+#                     if data and data.get('txType') == 'create':
+#                         # --- THIS IS THE NEW LOGIC TO WRITE TO THE .TXT FILE ---
+
+#                         # 1. Get the current time
+#                         timestamp_ist = datetime.now(ZoneInfo("Asia/Kolkata"))
+
+#                         # 2. Create a formatted, multi-line string with all the details
+#                         log_entry = f"""
+# =============================================
+# 🔥 New Token Detected at {timestamp_ist.strftime('%Y-%m-%d %H:%M:%S %Z')}
+#    -> Name: {data.get('name', 'N/A')} (${data.get('symbol', 'N/A')})
+#    -> Mint Address: {data.get('mint', 'N/A')}
+#    -> Creator Invested: {data.get('solAmount', 0):.2f} SOL
+#    -> Creator: {data.get('traderPublicKey', 'N/A')}
+#    -> Link: https://pump.fun/{data.get('mint', '')}
+# =============================================
+# """
+#                         # 3. Append this string to the log file
+#                         with open(LOG_FILE, 'a', encoding='utf-8') as f:
+#                             f.write(log_entry)
+
+#                         # 4. (Optional) Print a confirmation to the console
+#                         print(f"✅ Logged new token to {LOG_FILE}: {data.get('name', 'N/A')}")
+#                         # --- END OF NEW LOGIC ---
+                    # *************************************************************************************************************
+
                     message = await websocket.recv()
                     data = json.loads(message)
                     if data and data.get('txType') == 'create':
-                        # --- THIS IS THE NEW LOGIC TO WRITE TO THE .TXT FILE ---
-
-                        # 1. Get the current time
-                        timestamp_ist = datetime.now(ZoneInfo("Asia/Kolkata"))
-
-                        # 2. Create a formatted, multi-line string with all the details
-                        log_entry = f"""
-=============================================
-🔥 New Token Detected at {timestamp_ist.strftime('%Y-%m-%d %H:%M:%S %Z')}
-   -> Name: {data.get('name', 'N/A')} (${data.get('symbol', 'N/A')})
-   -> Mint Address: {data.get('mint', 'N/A')}
-   -> Creator Invested: {data.get('solAmount', 0):.2f} SOL
-   -> Creator: {data.get('traderPublicKey', 'N/A')}
-   -> Link: https://pump.fun/{data.get('mint', '')}
-=============================================
-"""
-                        # 3. Append this string to the log file
-                        with open(LOG_FILE, 'a', encoding='utf-8') as f:
-                            f.write(log_entry)
-
-                        # 4. (Optional) Print a confirmation to the console
-                        print(f"✅ Logged new token to {LOG_FILE}: {data.get('name', 'N/A')}")
+                        # --- THIS IS THE NEW LOGIC TO SAVE TO THE DATABASE ---
+                        token_data = {
+                            'timestamp': datetime.now(ZoneInfo("Asia/Kolkata")),
+                            'name': data.get('name', 'N/A'),
+                            'symbol': data.get('symbol', 'N/A'),
+                            'mint_address': data.get('mint', 'N/A'),
+                            'sol_amount': data.get('solAmount', 0),
+                            'creator_address': data.get('creator', 'N/A'),
+                        }
+                        await save_token_to_db(token_data)
                         # --- END OF NEW LOGIC ---
+
+                        ####################################################################################################################
 
                 except websockets.ConnectionClosed:
                     print("⚠️ WebSocket connection closed. Reconnecting...")
