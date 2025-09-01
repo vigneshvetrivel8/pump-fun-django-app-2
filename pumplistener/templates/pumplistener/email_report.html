@@ -19,6 +19,7 @@
                 <th>Name</th>
                 <th>Symbol</th>
                 <th>Mint Address</th>
+                <th>Creator</th>
                 <th>SOL Invested</th>
             </tr>
         </thead>
@@ -29,6 +30,7 @@
                 <td>{{ token.name }}</td>
                 <td>{{ token.symbol }}</td>
                 <td><a href="{{ token.pump_fun_link }}">{{ token.mint_address }}</a></td>
+                <td>{{ token.creator_address }}</td>
                 <td>{{ token.sol_amount }}</td>
             </tr>
             {% endfor %}
