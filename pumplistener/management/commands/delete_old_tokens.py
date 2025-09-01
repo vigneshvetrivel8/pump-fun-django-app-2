@@ -76,7 +76,8 @@ class Command(BaseCommand):
         current_ist_time = datetime.utcnow() + timedelta(hours=5, minutes=30)
         
         # Set your desired duration (e.g., 2 hours)
-        cutoff_duration = timedelta(hours=2)
+        # cutoff_duration = timedelta(hours=2)
+        cutoff_duration = timedelta(minutes=30)
         
         # Calculate the cutoff time based on the correct IST time
         cutoff_time = current_ist_time - cutoff_duration
