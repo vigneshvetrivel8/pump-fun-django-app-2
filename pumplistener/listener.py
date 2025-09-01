@@ -177,12 +177,13 @@ async def pump_fun_listener():
                     if data and data.get('txType') == 'create':
                         # --- THIS IS THE NEW LOGIC TO SAVE TO THE DATABASE ---
                         token_data = {
-                            'timestamp': datetime.now(ZoneInfo("Asia/Kolkata")),
+                            # 'timestamp': datetime.now(ZoneInfo("Asia/Kolkata")),
+                            'timestamp': datetime.now(),
                             'name': data.get('name', 'N/A'),
                             'symbol': data.get('symbol', 'N/A'),
                             'mint_address': data.get('mint', 'N/A'),
                             'sol_amount': data.get('solAmount', 0),
-                            'creator_address': data.get('creator', 'N/A'),
+                            'creator_address': data.get('traderPublicKey', 'N/A'),
                         }
                         await save_token_to_db(token_data)
                         # --- END OF NEW LOGIC ---
