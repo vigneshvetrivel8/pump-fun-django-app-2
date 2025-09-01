@@ -117,6 +117,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from asgiref.sync import sync_to_async # <--- ADD THIS
 from .models import Token # <--- ADD THIS
+from datetime import datetime, timedelta
 
 # --- CONFIGURATION ---
 PUMPORTAL_WSS = "wss://pumpportal.fun/api/data"
@@ -175,10 +176,12 @@ async def pump_fun_listener():
                     message = await websocket.recv()
                     data = json.loads(message)
                     if data and data.get('txType') == 'create':
+                        ist_time = datetime.utcnow() + timedelta(hours=5, minutes=30)
                         # --- THIS IS THE NEW LOGIC TO SAVE TO THE DATABASE ---
                         token_data = {
                             # 'timestamp': datetime.now(ZoneInfo("Asia/Kolkata")),
-                            'timestamp': datetime.now(),
+                            # 'timestamp': datetime.now(),
+                            'timestamp': ist_time,
                             'name': data.get('name', 'N/A'),
                             'symbol': data.get('symbol', 'N/A'),
                             'mint_address': data.get('mint', 'N/A'),
