@@ -9,7 +9,8 @@ class Command(BaseCommand):
     help = 'Deletes token records older than 6 hours.'
 
     def handle(self, *args, **options):
-        cutoff_time = timezone.now() - timedelta(hours=6)
+        # cutoff_time = timezone.now() - timedelta(hours=6)
+        cutoff_time = timezone.now() - timedelta(minutes=15)
 
         self.stdout.write(f"Looking for tokens created before {cutoff_time.strftime('%Y-%m-%d %H:%M:%S')}...")
 
