@@ -75,8 +75,8 @@ class Command(BaseCommand):
             self.stdout.write("No tokens to report or no recipient email configured.")
 
         # --- PART 2: DELETE OLD TOKENS (The existing logic) ---
-        # cutoff_time = timezone.now() - timedelta(hours=6)
-        cutoff_time = timezone.now() - timedelta(minutes=5)
+        cutoff_time = timezone.now() - timedelta(hours=2)
+        # cutoff_time = timezone.now() - timedelta(minutes=5)
         self.stdout.write(f"Looking for tokens created before {cutoff_time.strftime('%Y-%m-%d %H:%M:%S')}...")
         
         old_tokens = Token.objects.filter(timestamp__lt=cutoff_time)
