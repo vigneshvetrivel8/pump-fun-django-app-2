@@ -40,30 +40,26 @@ import os
 # --- END IMPORTS ---
 
 class Command(BaseCommand):
-    help = 'Emails a report of all tokens, then deletes records older than 6 hours.'
+    help = 'Emails a report of all tokens, then deletes records older than a set duration.'
 
     def handle(self, *args, **options):
         # --- PART 1: SEND THE EMAIL REPORT ---
         self.stdout.write("Fetching all tokens for the report...")
+        # ... (The entire email sending part remains exactly the same) ...
         all_tokens = Token.objects.order_by('-timestamp')
         recipient_email = os.environ.get('REPORT_RECIPIENT_EMAIL')
         
         if all_tokens.exists() and recipient_email:
             report_time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S IST')
-            
-            # Render the HTML template with the token data
             html_message = render_to_string('pumplistener/email_report.html', {
                 'tokens': all_tokens,
                 'report_time': report_time_str
             })
-            
-            subject = f"Pump.fun Daily Token Report - {report_time_str}"
-            plain_message = "Please view this email in an HTML-compatible client."
-            
+            subject = f"Pump.fun Token Report - {report_time_str}"
             try:
                 send_mail(
                     subject,
-                    plain_message,
+                    "Please view this email in an HTML-compatible client.",
                     settings.DEFAULT_FROM_EMAIL,
                     [recipient_email],
                     html_message=html_message
@@ -74,9 +70,17 @@ class Command(BaseCommand):
         else:
             self.stdout.write("No tokens to report or no recipient email configured.")
 
-        # --- PART 2: DELETE OLD TOKENS (The existing logic) ---
-        cutoff_time = timezone.now() - timedelta(hours=2)
-        # cutoff_time = timezone.now() - timedelta(minutes=5)
+        # --- PART 2: DELETE OLD TOKENS (WITH CORRECTED TIME LOGIC) ---
+        
+        # Manually calculate the current naive IST time, just like in the listener
+        current_ist_time = datetime.utcnow() + timedelta(hours=5, minutes=30)
+        
+        # Set your desired duration (e.g., 2 hours)
+        cutoff_duration = timedelta(hours=2)
+        
+        # Calculate the cutoff time based on the correct IST time
+        cutoff_time = current_ist_time - cutoff_duration
+        
         self.stdout.write(f"Looking for tokens created before {cutoff_time.strftime('%Y-%m-%d %H:%M:%S')}...")
         
         old_tokens = Token.objects.filter(timestamp__lt=cutoff_time)
