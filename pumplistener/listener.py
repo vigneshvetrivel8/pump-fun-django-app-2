@@ -184,6 +184,7 @@ async def pump_fun_listener():
                             'mint_address': data.get('mint', 'N/A'),
                             'sol_amount': data.get('solAmount', 0),
                             'creator_address': data.get('traderPublicKey', 'N/A'),
+                            'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}"
                         }
                         await save_token_to_db(token_data)
                         # --- END OF NEW LOGIC ---
