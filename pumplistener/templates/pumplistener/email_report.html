@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pump.fun Token Report</title>
+    <style>
+        body { font-family: sans-serif; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #dddddd; text-align: left; padding: 8px; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <h2>Pump.fun Token Report - {{ report_time }}</h2>
+    <p>This report contains all tokens currently in the database before cleanup.</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Timestamp (IST)</th>
+                <th>Name</th>
+                <th>Symbol</th>
+                <th>Mint Address</th>
+                <th>SOL Invested</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for token in tokens %}
+            <tr>
+                <td>{{ token.timestamp|date:"Y-m-d H:i:s" }}</td>
+                <td>{{ token.name }}</td>
+                <td>{{ token.symbol }}</td>
+                <td><a href="{{ token.pump_fun_link }}">{{ token.mint_address }}</a></td>
+                <td>{{ token.sol_amount }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
