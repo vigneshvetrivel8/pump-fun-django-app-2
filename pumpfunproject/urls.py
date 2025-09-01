@@ -26,12 +26,12 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path
-from pumplistener.views import view_log_file # <--- ADD THIS IMPORT
-
+from pumplistener.views import view_log_file, trigger_token_cleanup
 urlpatterns = [
     path('admin/', admin.site.urls),
 
     # ADD THIS LINE: Creates a URL to access your log view
     # You can change 'view-log/' to any path you want.
     path('view-log/', view_log_file, name='view_log'),
+    path('trigger-cleanup-a7g3k9q/', trigger_token_cleanup, name='trigger_cleanup'),
 ]
