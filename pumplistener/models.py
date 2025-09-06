@@ -19,3 +19,14 @@ class Token(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.symbol})"
+    
+    
+# --- ADD THIS NEW MODEL ---
+class TokenDataPoint(models.Model):
+    token = models.ForeignKey(Token, related_name='data_points', on_delete=models.CASCADE)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    # We'll store the collected API data as a JSON object
+    data = models.JSONField()
+
+    def __str__(self):
+        return f"Data for {self.token.symbol} at {self.timestamp}"
