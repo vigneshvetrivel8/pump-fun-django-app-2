@@ -51,7 +51,8 @@ class Command(BaseCommand):
         recipient_email = os.environ.get('REPORT_RECIPIENT_EMAIL')
         
         if all_tokens.exists() and recipient_email:
-            report_time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S IST')
+            # report_time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S IST')
+            report_time_str = datetime.utcnow() + timedelta(hours=5, minutes=30)
             html_message = render_to_string('pumplistener/email_report.html', {
                 'tokens': all_tokens,
                 'report_time': report_time_str
