@@ -218,6 +218,7 @@ import httpx  # For making async HTTP requests
 from django.utils import timezone
 from asgiref.sync import sync_to_async
 from .models import Token, TokenDataPoint
+from datetime import datetime, timedelta
 
 # Solana library imports
 from solders.keypair import Keypair
@@ -385,18 +386,38 @@ async def pump_fun_listener():
                 message = await websocket.recv()
                 data = json.loads(message)
                 if data and data.get('txType') == 'create':
-                    creator_address = data.get('creator', 'N/A')
-                    is_on_watchlist = creator_address in WATCHLIST_CREATORS
+                    # creator_address = data.get('creator', 'N/A')
+                    # is_on_watchlist = creator_address in WATCHLIST_CREATORS
                     
+                    # token_data = {
+                    #     'timestamp': timezone.now(),
+                    #     'name': data.get('name', 'N/A'),
+                    #     'symbol': data.get('symbol', 'N/A'),
+                    #     'mint_address': data.get('mint', 'N/A'),
+                    #     'sol_amount': data.get('solAmount', 0),
+                    #     'creator_address': creator_address,
+                    #     'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
+                    #     'is_from_watchlist': is_on_watchlist
+                    # }
+
+                    ist_time = datetime.utcnow() + timedelta(hours=5, minutes=30)
+                    creator_address = data.get('traderPublicKey', 'N/A')
+
+                    # --- Check if the creator is on our watchlist ---
+                    is_on_watchlist = creator_address in WATCHLIST_CREATORS
+
+                    # --- THIS IS THE NEW LOGIC TO SAVE TO THE DATABASE ---
                     token_data = {
-                        'timestamp': timezone.now(),
+                        # 'timestamp': datetime.now(ZoneInfo("Asia/Kolkata")),
+                        # 'timestamp': datetime.now(),
+                        'timestamp': ist_time,
                         'name': data.get('name', 'N/A'),
                         'symbol': data.get('symbol', 'N/A'),
                         'mint_address': data.get('mint', 'N/A'),
                         'sol_amount': data.get('solAmount', 0),
                         'creator_address': creator_address,
                         'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
-                        'is_from_watchlist': is_on_watchlist
+                        'is_from_watchlist': is_on_watchlist # <--- ADD THIS
                     }
                     
                     token_object = await save_token_to_db(token_data)
