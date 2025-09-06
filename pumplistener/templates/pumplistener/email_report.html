@@ -46,7 +46,7 @@
 
 <!-- #################################################################################################################### -->
 
-{% load tz %}
+<!-- {% load tz %}
 <!DOCTYPE html>
 <html>
 <head>
@@ -106,6 +106,92 @@
                     </td>
                 </tr>
                 {% endif %}
+
+            {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align: center;">No tokens found in the database.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html> -->
+
+<!-- ####################################################################################################################### -->
+
+{% load tz %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pump.fun Token Report</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.5; }
+        table { border-collapse: collapse; width: 100%; font-size: 14px; }
+        th, td { border: 1px solid #dddddd; text-align: left; padding: 8px; }
+        th { background-color: #f2f2f2; }
+        a { color: #007bff; text-decoration: none; }
+        .details-cell { background-color: #f8f9fa; padding-left: 20px; }
+        .details-cell ul { margin: 5px 0; padding-left: 20px; list-style-type: none; }
+    </style>
+</head>
+<body>
+    <h2>Pump.fun Token Report - {{ report_time }}</h2>
+    <p>This report contains all tokens currently in the database before cleanup.</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Timestamp (IST)</th>
+                <th>Name</th>
+                <th>Symbol</th>
+                <th>Mint Address</th>
+                <th>Creator</th>
+                <th>SOL Invested</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for token in tokens %}
+                {# Main row for the token #}
+                <!-- <tr style="{% if token.is_from_watchlist %}background-color: #fff3cd;{% endif %}"> -->
+                <tr {% if token.is_from_watchlist %}style="background-color: #fff3cd;"{% endif %}>
+                    <td>{{ token.timestamp|timezone:"Asia/Kolkata"|date:"Y-m-d H:i:s" }}</td>
+                    <td>
+                        {{ token.name }}
+                        {% if token.is_from_watchlist %}<strong> (WATCHLIST)</strong>{% endif %}
+                    </td>
+                    <td>{{ token.symbol }}</td>
+                    <td><a href="{{ token.pump_fun_link }}">{{ token.mint_address }}</a></td>
+                    <td>{{ token.creator_address }}</td>
+                    <td>{{ token.sol_amount }}</td>
+                </tr>
+
+                {# --- THIS IS THE UPDATED SECTION --- #}
+                {% if token.is_from_watchlist and token.data_points.all %}
+                <tr>
+                    <td colspan="6" class="details-cell">
+                        <strong>5-Minute Data Log:</strong>
+                        <ul>
+                        {% for point in token.data_points.all %}
+                            <li>
+                                <strong>{{ point.timestamp|timezone:"Asia/Kolkata"|date:"H:i:s" }} - </strong>
+                                
+                                {% if point.data.source == "helius_getTokenLargestAccounts" %}
+                                    Helius: Top 20 Holders Count = {{ point.data.data.result.value|length }}
+                                {% elif point.data.source == "moralis_metadata" %}
+                                    Moralis: FDV = ${{ point.data.data.fullyDilutedValuation|floatformat:2 }}
+                                {% elif point.data.source == "moralis_holder_stats" %}
+                                    Moralis: Total Holders = {{ point.data.data.total }}, Top 10% = {{ point.data.data.top_10_holders_percentage|floatformat:2 }}%
+                                {% elif point.data.data.error %}
+                                    API Error: {{ point.data.error }}
+                                {% else %}
+                                    {{ point.data|safe }}
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                        </ul>
+                    </td>
+                </tr>
+                {% endif %}
+                {# --- END OF UPDATED SECTION --- #}
 
             {% empty %}
                 <tr>
