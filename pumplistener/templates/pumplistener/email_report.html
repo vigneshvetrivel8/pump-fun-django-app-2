@@ -39,7 +39,7 @@
             {% for token in tokens %}
             <!-- <tr style="{% if token.is_from_watchlist %}background-color: #fff3cd;{% endif %}"> -->
             <tr {% if token.is_from_watchlist %}style="background-color: #fff3cd;"{% endif %}>
-                <td>{{ token.timestamp|timezone:"Asia/Kolkata"|date:"Y-m-d H:i:s" }}</td>
+                <td>{{ token.timestamp|date:"Y-m-d H:i:s" }}</td>
                 <td>
                     {{ token.name }}
                     {% if token.is_from_watchlist %}<strong> (WATCHLIST)</strong>{% endif %}
