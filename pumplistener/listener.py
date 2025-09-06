@@ -118,6 +118,13 @@ from zoneinfo import ZoneInfo
 from asgiref.sync import sync_to_async # <--- ADD THIS
 from .models import Token # <--- ADD THIS
 from datetime import datetime, timedelta
+import os # <--- ADD THIS
+
+# --- ADD THIS BLOCK: Load the watchlist from the environment variable ---
+# We load it once when the script starts. Using a set() is very fast for checking.
+watchlist_str = os.environ.get('CREATOR_WATCHLIST', '')
+WATCHLIST_CREATORS = set(watchlist_str.split(','))
+# --- END OF NEW BLOCK ---
 
 # --- CONFIGURATION ---
 PUMPORTAL_WSS = "wss://pumpportal.fun/api/data"
@@ -177,6 +184,11 @@ async def pump_fun_listener():
                     data = json.loads(message)
                     if data and data.get('txType') == 'create':
                         ist_time = datetime.utcnow() + timedelta(hours=5, minutes=30)
+                        creator_address = data.get('traderPublicKey', 'N/A')
+
+                        # --- Check if the creator is on our watchlist ---
+                        is_on_watchlist = creator_address in WATCHLIST_CREATORS
+
                         # --- THIS IS THE NEW LOGIC TO SAVE TO THE DATABASE ---
                         token_data = {
                             # 'timestamp': datetime.now(ZoneInfo("Asia/Kolkata")),
@@ -186,11 +198,20 @@ async def pump_fun_listener():
                             'symbol': data.get('symbol', 'N/A'),
                             'mint_address': data.get('mint', 'N/A'),
                             'sol_amount': data.get('solAmount', 0),
-                            'creator_address': data.get('traderPublicKey', 'N/A'),
-                            'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}"
+                            'creator_address': creator_address,
+                            'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
+                            'is_from_watchlist': is_on_watchlist # <--- ADD THIS
                         }
                         await save_token_to_db(token_data)
                         # --- END OF NEW LOGIC ---
+                        
+                        # Optional: Add a special log message for watchlist hits
+                        if is_on_watchlist:
+                            print(f"🚨🚨🚨 WATCHLIST HIT: New token '{data.get('name')}' by {creator_address}")
+                            # You could also add logic here to send an immediate, separate email alert
+
+
+
 
                         ####################################################################################################################
 

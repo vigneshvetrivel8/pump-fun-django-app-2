@@ -14,5 +14,8 @@ class Token(models.Model):
     # ADD THIS LINE
     pump_fun_link = models.CharField(max_length=200, default='')
 
+    # ADD THIS NEW FIELD
+    is_from_watchlist = models.BooleanField(default=False)
+
     def __str__(self):
         return f"{self.name} ({self.symbol})"

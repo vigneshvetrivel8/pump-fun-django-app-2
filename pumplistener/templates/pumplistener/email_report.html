@@ -23,7 +23,7 @@
                 <th>SOL Invested</th>
             </tr>
         </thead>
-        <tbody>
+        <!-- <tbody>
             {% for token in tokens %}
             <tr>
                 <td>{{ token.timestamp|date:"Y-m-d H:i:s" }}</td>
@@ -31,6 +31,24 @@
                 <td>{{ token.symbol }}</td>
                 <td><a href="{{ token.pump_fun_link }}">{{ token.mint_address }}</a></td>
                 <td>{{ token.creator_address }}</td>
+                <td>{{ token.sol_amount }}</td>
+            </tr>
+            {% endfor %}
+        </tbody> -->
+        <tbody>
+            {% for token in tokens %}
+            <!-- <tr style="{% if token.is_from_watchlist %}background-color: #fff3cd;{% endif %}"> -->
+            <tr {% if token.is_from_watchlist %}style="background-color: #fff3cd;"{% endif %}>
+                <td>{{ token.timestamp|timezone:"Asia/Kolkata"|date:"Y-m-d H:i:s" }}</td>
+                <td>
+                    {{ token.name }}
+                    {% if token.is_from_watchlist %}<strong> (WATCHLIST)</strong>{% endif %}
+                </td>
+                <td>{{ token.symbol }}</td>
+                <td><a href="{{ token.pump_fun_link }}">{{ token.mint_address }}</a></td>
+                
+                <td>{{ token.creator_address }}</td>
+
                 <td>{{ token.sol_amount }}</td>
             </tr>
             {% endfor %}
