@@ -264,9 +264,9 @@
                                 {% if point.data.source == "helius_getTokenLargestAccounts" %}
                                     Helius: Top 20 Holders Count = {{ point.data.data.result.value|length }}
                                 {% elif point.data.source == "moralis_metadata" %}
-                                    Moralis (Powered by <a href="https://moralis.io" target="_blank">Moralis</a>): FDV = ${{ point.data.data.fullyDilutedValuation|floatformat:2 }}
+                                    Moralis (Powered by <a href="https://moralis.com" target="_blank">Moralis</a>): FDV = ${{ point.data.data.fullyDilutedValuation|floatformat:2 }}
                                 {% elif point.data.source == "moralis_holder_stats" %}
-                                    Moralis (Powered by <a href="https://moralis.io" target="_blank">Moralis</a>): Total Holders = {{ point.data.data.total }}, Top 10% = {{ point.data.data.top_10_holders_percentage|floatformat:2 }}%
+                                    Moralis (Powered by <a href="https://moralis.com" target="_blank">Moralis</a>): Total Holders = {{ point.data.data.total }}, Top 10% = {{ point.data.data.top_10_holders_percentage|floatformat:2 }}%
                                 {% elif point.data.data.error %}
                                     API Error: {{ point.data.error }}
                                 {% else %}
@@ -289,7 +289,7 @@
 
     <!-- Footer attribution -->
     <p class="attribution">
-        Powered by <a href="https://moralis.io" target="_blank">Moralis</a>
+        Powered by <a href="https://moralis.com" target="_blank">Moralis</a>
     </p>
 </body>
 </html>
