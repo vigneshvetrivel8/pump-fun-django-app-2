@@ -269,17 +269,27 @@
                                     Moralis (Powered by <a href="https://moralis.com" target="_blank">Moralis</a>): Total Holders = {{ point.data.data.total }}, Top 10% = {{ point.data.data.top_10_holders_percentage|floatformat:2 }}%
                                 {% elif point.data.data.error %}
                                     API Error: {{ point.data.error }} -->
-                                {% elif point.data.source == "moralis_metadata" %}
+                                <!-- {% elif point.data.source == "moralis_metadata" %}
                                     {# This checks if the FDV value exists before trying to display it #}
-                                    {% if point.data.data.fullyDilutedValuation %}
-                                        Moralis (Powered by <a href="https://moralis.com" target="_blank">Moralis</a>): FDV = ${{ point.data.data.fullyDilutedValuation|floatformat:2 }}
+                                    {% if point.data.data.fullyDilutedValue %}
+                                        Moralis (Powered by <a href="https://moralis.com" target="_blank">Moralis</a>): FDV = ${{ point.data.data.fullyDilutedValue|floatformat:2 }}
                                     {% else %}
                                         Moralis (Powered by <a href="https://moralis.com" target="_blank">Moralis</a>): FDV = N/A
-                                    {% endif %}
+                                    {% endif %} -->
+                                    
+                                {% elif point.data.source == "moralis_metadata" %}
+                                    {# This will display all the raw metadata in a formatted block #}
+                                    Moralis Metadata (Powered by <a href="https://moralis.com" target="_blank">Moralis</a>):
+                                    <pre style="font-size: 12px; background-color: #eee; padding: 5px; border-radius: 4px;">{{ point.data.data }}</pre>
 
-                                {% elif point.data.source == "moralis_holder_stats" %}
+
+                                <!-- {% elif point.data.source == "moralis_holder_stats" %}
                                     {# These are the corrected paths to the data based on your screenshots #}
-                                    Moralis (Powered by <a href="https://moralis.com" target="_blank">Moralis</a>): Total Holders = {{ point.data.data.holderDistribution.total }}, Top 10% = {{ point.data.data.supplyPercent.top10|floatformat:2 }}%
+                                    Moralis (Powered by <a href="https://moralis.com" target="_blank">Moralis</a>): Total Holders = {{ point.data.data.totalHolders }}, Top 10% = {{ point.data.data.supplyPercent.top10|floatformat:2 }}% -->
+                                {% elif point.data.source == "moralis_holder_stats" %}
+                                    {# This will display all the raw holder data in a formatted block #}
+                                    Moralis Holder Stats (Powered by <a href="https://moralis.com" target="_blank">Moralis</a>):
+                                    <pre style="font-size: 12px; background-color: #eee; padding: 5px; border-radius: 4px;">{{ point.data.data }}</pre>
 
                                 {% elif point.data.error %}
                                     {# This correctly checks for an API error message #}
