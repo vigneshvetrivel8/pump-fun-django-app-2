@@ -322,8 +322,8 @@ async def get_moralis_metadata(mint_address: str):
     headers = {"Accept": "application/json", "X-API-Key": MORALIS_API_KEY, "x-source": "pumpfun_tracker"}
     async with httpx.AsyncClient() as client:
         try:
-            # response = await client.get(url, headers=headers, timeout=10)
-            response = await client.get(url, headers=headers)
+            response = await client.get(url, headers=headers, timeout=10)
+            # response = await client.get(url, headers=headers)
             response.raise_for_status()
             data = response.json()
             # --- CHANGE THIS: Return the full data payload ---
@@ -338,8 +338,8 @@ async def get_moralis_holder_stats(mint_address: str):
     headers = {"Accept": "application/json", "X-API-Key": MORALIS_API_KEY, "x-source": "pumpfun_tracker"}
     async with httpx.AsyncClient() as client:
         try:
-            # response = await client.get(url, headers=headers, timeout=10)
-            response = await client.get(url, headers=headers)
+            response = await client.get(url, headers=headers, timeout=10)
+            # response = await client.get(url, headers=headers)
             response.raise_for_status()
             data = response.json()
             # --- CHANGE THIS: Return the full data payload ---
