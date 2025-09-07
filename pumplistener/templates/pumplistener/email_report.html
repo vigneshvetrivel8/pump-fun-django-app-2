@@ -207,7 +207,7 @@
 
 <!-- ############################################################################################################################################ -->
 
-{% load tz %}
+<!-- {% load tz %}
 <!DOCTYPE html>
 <html>
 <head>
@@ -259,36 +259,15 @@
                         <ul>
                         {% for point in token.data_points.all %}
                             <li>
-                                <!-- <strong>{{ point.timestamp|timezone:"Asia/Kolkata"|date:"H:i:s" }} - </strong> -->
                                 <strong>{{ point.timestamp|date:"H:i:s" }} - </strong>
                                 {% if point.data.source == "helius_getTokenLargestAccounts" %}
                                     Helius: Top 20 Holders Count = {{ point.data.data.result.value|length }}
-                                <!-- {% elif point.data.source == "moralis_metadata" %}
-                                    Moralis (Powered by <a href="https://moralis.com" target="_blank">Moralis</a>): FDV = ${{ point.data.data.fullyDilutedValuation|floatformat:2 }}
-                                {% elif point.data.source == "moralis_holder_stats" %}
-                                    Moralis (Powered by <a href="https://moralis.com" target="_blank">Moralis</a>): Total Holders = {{ point.data.data.total }}, Top 10% = {{ point.data.data.top_10_holders_percentage|floatformat:2 }}%
-                                {% elif point.data.data.error %}
-                                    API Error: {{ point.data.error }} -->
-                                <!-- {% elif point.data.source == "moralis_metadata" %}
-                                    {# This checks if the FDV value exists before trying to display it #}
-                                    {% if point.data.data.fullyDilutedValue %}
-                                        Moralis (Powered by <a href="https://moralis.com" target="_blank">Moralis</a>): FDV = ${{ point.data.data.fullyDilutedValue|floatformat:2 }}
-                                    {% else %}
-                                        Moralis (Powered by <a href="https://moralis.com" target="_blank">Moralis</a>): FDV = N/A
-                                    {% endif %} -->
-                                    
                                 {% elif point.data.source == "moralis_metadata" %}
                                     Moralis Metadata (Powered by <a href="https://moralis.com" target="_blank">Moralis</a>):
                                     <pre style="font-size: 12px; background-color: #eee; padding: 5px; border-radius: 4px;">{{ point.data.data }}</pre>
-
-
-                                <!-- {% elif point.data.source == "moralis_holder_stats" %}
-                                    {# These are the corrected paths to the data based on your screenshots #}
-                                    Moralis (Powered by <a href="https://moralis.com" target="_blank">Moralis</a>): Total Holders = {{ point.data.data.totalHolders }}, Top 10% = {{ point.data.data.supplyPercent.top10|floatformat:2 }}% -->
                                 {% elif point.data.source == "moralis_holder_stats" %}
                                     Moralis Holder Stats (Powered by <a href="https://moralis.com" target="_blank">Moralis</a>):
                                     <pre style="font-size: 12px; background-color: #eee; padding: 5px; border-radius: 4px;">{{ point.data.data }}</pre>
-
                                 {% elif point.data.error %}
                                     API Error: {{ point.data.error }}
                                 {% else %}
@@ -308,10 +287,88 @@
             {% endfor %}
         </tbody>
     </table>
-
-    <!-- Footer attribution -->
     <p class="attribution">
         Powered by <a href="https://moralis.com" target="_blank">Moralis</a>
+    </p>
+</body>
+</html> -->
+
+<!-- ################################################################################################################### -->
+
+{% load tz %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pump.fun Token Report</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.5; }
+        table { border-collapse: collapse; width: 100%; font-size: 14px; }
+        th, td { border: 1px solid #dddddd; text-align: left; padding: 8px; }
+        th { background-color: #f2f2f2; }
+        a { color: #007bff; text-decoration: none; }
+        .details-cell { background-color: #f8f9fa; padding-left: 20px; }
+        .details-cell ul { margin: 5px 0; padding-left: 20px; list-style-type: none; }
+        .attribution { text-align: center; font-size: 12px; color: #888; margin-top: 20px; }
+        .attribution a { color: #888; text-decoration: none; }
+        pre { font-size: 12px; background-color: #eee; padding: 5px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h2>Pump.fun Token Report - {{ report_time }}</h2>
+    <p>This report contains all tokens currently in the database before cleanup.</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Timestamp (IST)</th>
+                <th>Name</th>
+                <th>Symbol</th>
+                <th>Mint Address</th>
+                <th>Creator</th>
+                <th>SOL Invested</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for token in tokens %}
+                <tr {% if token.is_from_watchlist %}style="background-color: #fff3cd;"{% endif %}>
+                    <td>{{ token.timestamp|date:"Y-m-d H:i:s" }}</td>
+                    <td>
+                        {{ token.name }}
+                        {% if token.is_from_watchlist %}<strong> (WATCHLIST)</strong>{% endif %}
+                    </td>
+                    <td>{{ token.symbol }}</td>
+                    <td><a href="{{ token.pump_fun_link }}">{{ token.mint_address }}</a></td>
+                    <td>{{ token.creator_address }}</td>
+                    <td>{{ token.sol_amount }}</td>
+                </tr>
+
+                {% if token.is_from_watchlist and token.data_points.all %}
+                <tr>
+                    <td colspan="6" class="details-cell">
+                        <strong>5-Minute Data Log:</strong>
+                        <ul>
+                        {% for point in token.data_points.all %}
+                            <li>
+                                <strong>{{ point.timestamp|date:"H:i:s" }} - {{ point.data.source }}</strong>
+                                {% if point.data.error %}
+                                    <p style="color:red;">API Error: {{ point.data.error }}</p>
+                                {% else %}
+                                    <pre>{{ point.data.data|safe }}</pre>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                        </ul>
+                    </td>
+                </tr>
+                {% endif %}
+            {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align: center;">No tokens found in the database.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <p class="attribution">
+        Data powered by <a href="https://moralis.com" target="_blank">Moralis</a> (Free Plan Attribution).
     </p>
 </body>
 </html>
