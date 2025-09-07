@@ -259,8 +259,8 @@
                         <ul>
                         {% for point in token.data_points.all %}
                             <li>
-                                <strong>{{ point.timestamp|timezone:"Asia/Kolkata"|date:"H:i:s" }} - </strong>
-                                
+                                <!-- <strong>{{ point.timestamp|timezone:"Asia/Kolkata"|date:"H:i:s" }} - </strong> -->
+                                <strong>{{ point.timestamp|date:"H:i:s" }} - </strong>
                                 {% if point.data.source == "helius_getTokenLargestAccounts" %}
                                     Helius: Top 20 Holders Count = {{ point.data.data.result.value|length }}
                                 <!-- {% elif point.data.source == "moralis_metadata" %}
