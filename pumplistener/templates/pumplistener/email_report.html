@@ -295,7 +295,7 @@
 
 <!-- ################################################################################################################### -->
 
-{% load tz %}
+<!-- {% load tz %}
 <!DOCTYPE html>
 <html>
 <head>
@@ -370,5 +370,88 @@
     <p class="attribution">
         Data powered by <a href="https://moralis.com" target="_blank">Moralis</a> (Free Plan Attribution).
     </p>
+</body>
+</html> -->
+
+<!-- ################################################################################################################### -->
+
+{% load tz %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pump.fun Token Report</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.5; }
+        table { border-collapse: collapse; width: 100%; font-size: 14px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f4f4f4; }
+        .details-cell { background-color: #fafafa; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Pump.fun Token Report</h1>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Token Name</th>
+                <th>Symbol</th>
+                <th>Mint</th>
+                <th>Creator</th>
+                <th>Attribution</th>
+                <th>Details</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for token in tokens %}
+                <tr {% if token.is_from_watchlist %}style="background-color: #fff3cd;"{% endif %}>
+                    <td>{{ token.name }}</td>
+                    <td>{{ token.symbol }}</td>
+                    <td>{{ token.mint }}</td>
+                    <td>{{ token.creator }}</td>
+                    <td>
+                        {% if token.attribution == "helius" %}
+                            Helius API
+                        {% elif token.attribution == "moralis" %}
+                            Moralis API
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if token.is_from_watchlist and token.data_points.all %}
+                            <div class="details-cell">
+                                <strong>5-Minute Data Log:</strong>
+                                <ul>
+                                    {% for point in token.data_points.all %}
+                                        <li>
+                                            <strong>{{ point.timestamp|timezone:"Asia/Kolkata"|date:"H:i:s" }} - </strong>
+                                            
+                                            {% if point.attribution == "helius" %}
+                                                Count: {{ point.data.data.result.value|length }}
+                                            
+                                            {% elif point.attribution == "moralis" %}
+                                                {% if point.data.fullyDilutedValue %}
+                                                    Fully Diluted Value: {{ point.data.fullyDilutedValue }}
+                                                {% else %}
+                                                    No FDV available
+                                                {% endif %}
+                                            
+                                            {% elif point.attribution == "holders" %}
+                                                <pre>{{ point.data|safe }}</pre>
+                                            
+                                            {% else %}
+                                                <pre>{{ point.data|safe }}</pre>
+                                            {% endif %}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </body>
 </html>
