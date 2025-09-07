@@ -319,10 +319,11 @@ async def get_helius_top_holders_count(mint_address: str):
 async def get_moralis_metadata(mint_address: str):
     """Fetches metadata including FDV from Moralis."""
     url = f"https://solana-gateway.moralis.io/token/mainnet/{mint_address}/metadata"
-    headers = {"Accept": "application/json", "X-API-Key": MORALIS_API_KEY}
+    headers = {"Accept": "application/json", "X-API-Key": MORALIS_API_KEY, "x-source": "pumpfun_tracker"}
     async with httpx.AsyncClient() as client:
         try:
-            response = await client.get(url, headers=headers, timeout=10)
+            # response = await client.get(url, headers=headers, timeout=10)
+            response = await client.get(url, headers=headers)
             response.raise_for_status()
             data = response.json()
             # --- CHANGE THIS: Return the full data payload ---
@@ -334,10 +335,11 @@ async def get_moralis_metadata(mint_address: str):
 async def get_moralis_holder_stats(mint_address: str):
     """Fetches detailed holder statistics from Moralis."""
     url = f"https://solana-gateway.moralis.io/token/mainnet/holders/{mint_address}"
-    headers = {"Accept": "application/json", "X-API-Key": MORALIS_API_KEY}
+    headers = {"Accept": "application/json", "X-API-Key": MORALIS_API_KEY, "x-source": "pumpfun_tracker"}
     async with httpx.AsyncClient() as client:
         try:
-            response = await client.get(url, headers=headers, timeout=10)
+            # response = await client.get(url, headers=headers, timeout=10)
+            response = await client.get(url, headers=headers)
             response.raise_for_status()
             data = response.json()
             # --- CHANGE THIS: Return the full data payload ---
