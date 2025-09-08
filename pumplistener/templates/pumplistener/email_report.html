@@ -364,7 +364,8 @@
                                     {{ point.timestamp|date:"H:i:s" }} - 
                                     {# This is the new logic to add the credit #}
                                     {% if 'moralis' in point.data.source %}
-                                        {{ point.data.source }} (Powered by Moralis)
+                                        {{ point.data.source }} 
+                                        (<a href="https://moralis.io" target="_blank" rel="noopener noreferrer" style="color: #007bff; text-decoration: none;">Powered by Moralis</a>)
                                     {% else %}
                                         {{ point.data.source }}
                                     {% endif %}
