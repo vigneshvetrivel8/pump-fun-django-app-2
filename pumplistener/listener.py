@@ -224,6 +224,9 @@ from datetime import datetime, timedelta
 from solders.keypair import Keypair
 from solders.transaction import VersionedTransaction
 from solana.rpc.async_api import AsyncClient
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # --- CONFIGURATION ---
 PUMPORTAL_WSS = "wss://pumpportal.fun/api/data"
@@ -406,7 +409,10 @@ async def pump_fun_listener():
                     creator_address = data.get('traderPublicKey', 'N/A')
 
                     # --- Check if the creator is on our watchlist ---
+                    ################################################################
                     is_on_watchlist = creator_address in WATCHLIST_CREATORS
+                    # is_on_watchlist = True
+                    ##################################################################
 
                     # --- THIS IS THE NEW LOGIC TO SAVE TO THE DATABASE ---
                     token_data = {

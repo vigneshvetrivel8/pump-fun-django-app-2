@@ -8,6 +8,12 @@ import os
 from django.http import HttpResponse, JsonResponse
 from django.core.management import call_command
 
+# #################################################################################
+from django.shortcuts import render # Add this import at the top
+from .models import Token           # Add this import at the top
+from datetime import datetime, timedelta # Add this import at the top
+#####################################################################################
+
 # This is the name of the log file you defined in listener.py
 LOG_FILE = 'token_log.txt'
 
@@ -50,3 +56,25 @@ def trigger_token_cleanup(request):
         return JsonResponse({'status': 'success', 'message': 'Cleanup command executed.'})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+#####################################################################################
+def preview_email_report(request):
+    """
+    A view to render the email_report.html template directly in the browser for testing.
+    """
+    # Fetch all tokens and their related data points, just like in the email command
+    all_tokens = Token.objects.prefetch_related('data_points').order_by('-timestamp')
+    
+    # Get the current time for the report title
+    report_time_str = (datetime.utcnow() + timedelta(hours=5, minutes=30)).strftime('%Y-%m-%d %H:%M:%S IST')
+
+    # Prepare the context data for the template
+    context = {
+        'tokens': all_tokens,
+        'report_time': report_time_str
+    }
+    
+    # Render the template to the browser instead of sending an email
+    return render(request, 'pumplistener/email_report.html', context)
+
+#####################################################################################
