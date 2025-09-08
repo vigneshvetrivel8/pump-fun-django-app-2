@@ -348,7 +348,7 @@
                     <td colspan="6" class="details-cell">
                         <strong>5-Minute Data Log:</strong>
                         <ul>
-                        <!-- {% for point in token.data_points.all %}
+                        {% for point in token.data_points.all %}
                             <li>
                                 <strong>{{ point.timestamp|date:"H:i:s" }} - {{ point.data.source }}</strong>
                                 {% if point.data.error %}
@@ -357,8 +357,8 @@
                                     <pre>{{ point.data.data|safe }}</pre>
                                 {% endif %}
                             </li>
-                        {% endfor %} -->
-                        {% for point in token.data_points.all %}
+                        {% endfor %}
+                        <!-- {% for point in token.data_points.all %}
                             <li>
                                 <strong>
                                     {{ point.timestamp|date:"H:i:s" }} - 
@@ -377,7 +377,7 @@
                                     <pre>{{ point.data.data|safe }}</pre>
                                 {% endif %}
                             </li>
-                        {% endfor %}
+                        {% endfor %} -->
                         </ul>
                     </td>
                 </tr>
