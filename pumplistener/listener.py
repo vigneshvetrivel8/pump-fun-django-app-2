@@ -360,7 +360,8 @@ async def get_moralis_metadata(mint_address: str):
     ##################################################################################################################
     async with httpx.AsyncClient() as client:
         try:
-            response = await client.get(url, headers=headers, timeout=10)
+            # response = await client.get(url, headers=headers, timeout=10)
+            response = await client.get(url, headers=headers)
             # response = await client.get(url, headers=headers)
             response.raise_for_status()
             data = response.json()
@@ -383,7 +384,8 @@ async def get_moralis_holder_stats(mint_address: str):
     ###############################################################################################################################
     async with httpx.AsyncClient() as client:
         try:
-            response = await client.get(url, headers=headers, timeout=10)
+            # response = await client.get(url, headers=headers, timeout=10)
+            response = await client.get(url, headers=headers)
             # response = await client.get(url, headers=headers)
             response.raise_for_status()
             data = response.json()
