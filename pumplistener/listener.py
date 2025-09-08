@@ -208,12 +208,309 @@
 
 # pumplistener/listener.py
 
+# import asyncio
+# import websockets
+# import json
+# import time
+# import os
+# import httpx  # For making async HTTP requests
+# # import base58
+# from django.utils import timezone
+# from asgiref.sync import sync_to_async
+# from .models import Token, TokenDataPoint
+# from datetime import datetime, timedelta
+
+# # Solana library imports
+# from solders.keypair import Keypair
+# from solders.transaction import VersionedTransaction
+# from solana.rpc.async_api import AsyncClient
+# from dotenv import load_dotenv
+
+# load_dotenv()
+
+# # --- CONFIGURATION ---
+# PUMPORTAL_WSS = "wss://pumpportal.fun/api/data"
+# HELIUS_API_KEY = os.environ.get('HELIUS_API_KEY')
+# MORALIS_API_KEY = os.environ.get('MORALIS_API_KEY')
+# HELIUS_RPC_URL = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
+
+# # --- Load the watchlist ---
+# watchlist_str = os.environ.get('CREATOR_WATCHLIST', '')
+# WATCHLIST_CREATORS = set(watchlist_str.split(','))
+
+# ############################################################################################################################
+# # --- NEW: Load Multiple Moralis Keys ---
+# moralis_keys_str = os.environ.get('MORALIS_API_KEYS', '')
+# MORALIS_API_KEYS = [key.strip() for key in moralis_keys_str.split(',') if key.strip()]
+
+# if not MORALIS_API_KEYS:
+#     raise ValueError("🚨 No Moralis API keys found in .env file. Please set MORALIS_API_KEYS.")
+
+# print(f"✅ Loaded {len(MORALIS_API_KEYS)} Moralis API keys.")
+
+# # *************************************************************************************************************************
+
+# # --- NEW: Add this right after loading the keys ---
+# current_moralis_key_index = 0
+
+# def get_next_moralis_key():
+#     """Gets the next Moralis API key from the list in rotation."""
+#     global current_moralis_key_index
+    
+#     # Get the current key
+#     key = MORALIS_API_KEYS[current_moralis_key_index]
+    
+#     # Move to the next index for the next call, wrapping around if necessary
+#     current_moralis_key_index = (current_moralis_key_index + 1) % len(MORALIS_API_KEYS)
+    
+#     return key
+# #############################################################################################################################
+
+# # --- Database Functions (from previous steps) ---
+# @sync_to_async
+# def save_token_to_db(token_data):
+#     token, created = Token.objects.get_or_create(
+#         mint_address=token_data['mint_address'],
+#         defaults=token_data
+#     )
+#     if created:
+#         print(f"✅ Saved to DB: {token.name} ({token.symbol})")
+#     return token
+
+# @sync_to_async
+# def save_data_point(token: Token, api_data: dict):
+#     TokenDataPoint.objects.create(token=token, data=api_data)
+#     print(f"💾 Saved data point for {token.symbol}: {api_data.get('source')}")
+
+# ##################################################################################################################################################
+
+# # --- NEW: Real API Helper Functions ---
+# # async def get_helius_top_holders_count(mint_address: str):
+# #     """(Based on helius1.py) Fetches the count of the top 20 holders."""
+# #     payload = {
+# #         "jsonrpc": "2.0", "id": "helius-v1", "method": "getTokenLargestAccounts", "params": [mint_address]
+# #     }
+# #     async with httpx.AsyncClient() as client:
+# #         try:
+# #             response = await client.post(HELIUS_RPC_URL, json=payload, timeout=10)
+# #             response.raise_for_status()
+# #             data = response.json()
+# #             count = len(data.get('result', {}).get('value', []))
+# #             return {"source": "helius_top_20_count", "holder_count": count}
+# #         except Exception as e:
+# #             print(f"🚨 Error fetching from Helius: {e}")
+# #             return {"source": "helius_top_20_count", "error": str(e)}
+
+# # async def get_moralis_metadata(mint_address: str):
+# #     """(Based on moralis1.py) Fetches metadata including FDV."""
+# #     url = f"https://solana-gateway.moralis.io/token/mainnet/{mint_address}/metadata"
+# #     headers = {"Accept": "application/json", "X-API-Key": MORALIS_API_KEY}
+# #     async with httpx.AsyncClient() as client:
+# #         try:
+# #             response = await client.get(url, headers=headers, timeout=10)
+# #             response.raise_for_status()
+# #             data = response.json()
+# #             return {"source": "moralis_metadata", "fdv": data.get('fullyDilutedValuation'), "socials": data.get('associated_websites')}
+# #         except Exception as e:
+# #             print(f"🚨 Error fetching from Moralis (Metadata): {e}")
+# #             return {"source": "moralis_metadata", "error": str(e)}
+
+# # async def get_moralis_holder_stats(mint_address: str):
+# #     """(Based on moralis2.py) Fetches detailed holder statistics."""
+# #     url = f"https://solana-gateway.moralis.io/token/mainnet/holders/{mint_address}"
+# #     headers = {"Accept": "application/json", "X-API-Key": MORALIS_API_KEY}
+# #     async with httpx.AsyncClient() as client:
+# #         try:
+# #             response = await client.get(url, headers=headers, timeout=10)
+# #             response.raise_for_status()
+# #             data = response.json()
+# #             return {"source": "moralis_holder_stats", "total_holders": data.get('total'), "top_10_percent": data.get('top_10_holders_percentage')}
+# #         except Exception as e:
+# #             print(f"🚨 Error fetching from Moralis (Holders): {e}")
+# #             return {"source": "moralis_holder_stats", "error": str(e)}
+
+# # ************************************************************************************************************************************************************
+
+# async def get_helius_top_holders_count(mint_address: str):
+#     """Fetches the top 20 largest accounts from Helius."""
+#     payload = {
+#         "jsonrpc": "2.0", "id": "helius-v1", "method": "getTokenLargestAccounts", "params": [mint_address]
+#     }
+#     async with httpx.AsyncClient() as client:
+#         try:
+#             response = await client.post(HELIUS_RPC_URL, json=payload, timeout=10)
+#             response.raise_for_status()
+#             data = response.json()
+#             # --- CHANGE THIS: Return the full data payload ---
+#             return {"source": "helius_getTokenLargestAccounts", "data": data}
+#         except Exception as e:
+#             print(f"🚨 Error fetching from Helius: {e}")
+#             return {"source": "helius_getTokenLargestAccounts", "error": str(e)}
+
+# async def get_moralis_metadata(mint_address: str):
+#     """Fetches metadata including FDV from Moralis."""
+#     url = f"https://solana-gateway.moralis.io/token/mainnet/{mint_address}/metadata"
+#     ################################################################################################################
+#     # headers = {"Accept": "application/json", "X-API-Key": MORALIS_API_KEY, "x-source": "pumpfun_tracker"}
+#         # --- MODIFIED LINE ---
+#     # Use the rotating key function instead of a single key variable
+#     api_key = get_next_moralis_key() 
+#     # headers = {"Accept": "application/json", "X-API-Key": api_key, "x-source": "pumpfun_tracker"}
+#     headers = {"Accept": "application/json", "X-API-Key": api_key}
+#     ##################################################################################################################
+#     async with httpx.AsyncClient() as client:
+#         try:
+#             # response = await client.get(url, headers=headers, timeout=10)
+#             response = await client.get(url, headers=headers)
+#             # response = await client.get(url, headers=headers)
+#             response.raise_for_status()
+#             data = response.json()
+#             # --- CHANGE THIS: Return the full data payload ---
+#             return {"source": "moralis_metadata", "data": data}
+#         except Exception as e:
+#             print(f"🚨 Error fetching from Moralis (Metadata): {e}")
+#             return {"source": "moralis_metadata", "error": str(e)}
+
+# async def get_moralis_holder_stats(mint_address: str):
+#     """Fetches detailed holder statistics from Moralis."""
+#     url = f"https://solana-gateway.moralis.io/token/mainnet/holders/{mint_address}"
+#     ##############################################################################################################################
+#     # headers = {"Accept": "application/json", "X-API-Key": MORALIS_API_KEY, "x-source": "pumpfun_tracker"}
+#     # --- MODIFIED LINE ---
+#     # Use the rotating key function instead of a single key variable
+#     api_key = get_next_moralis_key() 
+#     # headers = {"Accept": "application/json", "X-API-Key": api_key, "x-source": "pumpfun_tracker"}
+#     headers = {"Accept": "application/json", "X-API-Key": api_key}
+#     ###############################################################################################################################
+#     async with httpx.AsyncClient() as client:
+#         try:
+#             # response = await client.get(url, headers=headers, timeout=10)
+#             response = await client.get(url, headers=headers)
+#             # response = await client.get(url, headers=headers)
+#             response.raise_for_status()
+#             data = response.json()
+#             # --- CHANGE THIS: Return the full data payload ---
+#             return {"source": "moralis_holder_stats", "data": data}
+#         except Exception as e:
+#             print(f"🚨 Error fetching from Moralis (Holders): {e}")
+#             return {"source": "moralis_holder_stats", "error": str(e)}
+
+# ###################################################################################################################################
+
+# # --- NEW: The 5-minute data collection task using the real APIs ---
+# async def collect_data_for_watchlist_coin(token: Token):
+#     mint = token.mint_address
+#     print(f"📈 Starting 5-minute data collection for watchlist coin: {token.symbol} ({mint})")
+    
+#     # T+30s check
+#     await asyncio.sleep(30)
+#     print(f"  -> [{token.symbol}] Running T+30s check...")
+#     helius_data = await get_helius_top_holders_count(mint)
+#     await save_data_point(token, helius_data)
+#     moralis_fdv = await get_moralis_metadata(mint)
+#     await save_data_point(token, moralis_fdv)
+    
+#     # Loop for the next 4.5 minutes, checking every 30 seconds
+#     for i in range(9):
+#         await asyncio.sleep(30)
+#         check_time = (i + 2) * 30
+#         print(f"  -> [{token.symbol}] Running T+{check_time}s check...")
+        
+#         moralis_stats = await get_moralis_holder_stats(mint)
+#         await save_data_point(token, moralis_stats)
+
+#     print(f"✅ Finished 5-minute data collection for {token.symbol}")
+
+
+# # --- Main listener function (from previous steps) ---
+# async def pump_fun_listener():
+#     print("🎧 Starting Pump.fun WebSocket listener...")
+#     async for websocket in websockets.connect(PUMPORTAL_WSS):
+#         try:
+#             subscribe_message = {"method": "subscribeNewToken"}
+#             await websocket.send(json.dumps(subscribe_message))
+#             print("✅ WebSocket Connected and Subscribed.")
+
+#             #####################################################################
+#             # --- 1. Initialize a counter for the simulation ---
+#             token_creation_counter = 0
+#             ######################################################################
+
+#             while True:
+#                 message = await websocket.recv()
+#                 data = json.loads(message)
+#                 if data and data.get('txType') == 'create':
+#                     # creator_address = data.get('creator', 'N/A')
+#                     # is_on_watchlist = creator_address in WATCHLIST_CREATORS
+                    
+#                     # token_data = {
+#                     #     'timestamp': timezone.now(),
+#                     #     'name': data.get('name', 'N/A'),
+#                     #     'symbol': data.get('symbol', 'N/A'),
+#                     #     'mint_address': data.get('mint', 'N/A'),
+#                     #     'sol_amount': data.get('solAmount', 0),
+#                     #     'creator_address': creator_address,
+#                     #     'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
+#                     #     'is_from_watchlist': is_on_watchlist
+#                     # }
+
+#                     ist_time = datetime.utcnow() + timedelta(hours=5, minutes=30)
+#                     creator_address = data.get('traderPublicKey', 'N/A')
+
+#                     ################################################################
+#                     # --- 2. Increment the counter for each new coin ---
+#                     token_creation_counter += 1
+#                     ################################################################
+
+#                     # --- Check if the creator is on our watchlist ---
+#                     ################################################################
+#                     # is_on_watchlist = creator_address in WATCHLIST_CREATORS
+#                     # is_on_watchlist = True
+#                     is_on_watchlist = (token_creation_counter % 15 == 0)
+#                     #################################################################
+#                     ##################################################################
+
+#                     # --- THIS IS THE NEW LOGIC TO SAVE TO THE DATABASE ---
+#                     token_data = {
+#                         # 'timestamp': datetime.now(ZoneInfo("Asia/Kolkata")),
+#                         # 'timestamp': datetime.now(),
+#                         'timestamp': ist_time,
+#                         'name': data.get('name', 'N/A'),
+#                         'symbol': data.get('symbol', 'N/A'),
+#                         'mint_address': data.get('mint', 'N/A'),
+#                         'sol_amount': data.get('solAmount', 0),
+#                         'creator_address': creator_address,
+#                         'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
+#                         'is_from_watchlist': is_on_watchlist # <--- ADD THIS
+#                     }
+                    
+#                     token_object = await save_token_to_db(token_data)
+
+#                     if token_object and token_object.is_from_watchlist:
+#                         asyncio.create_task(collect_data_for_watchlist_coin(token_object))
+#         except websockets.ConnectionClosed:
+#             print("⚠️ WebSocket connection closed. Reconnecting in 10 seconds...")
+#             await asyncio.sleep(10)
+#         except Exception as e:
+#             print(f"💥 Main listener error: {e}. Reconnecting in 10 seconds...")
+#             await asyncio.sleep(10)
+
+
+# # --- Wrapper function to keep the listener running ---
+# def run_listener_in_new_loop():
+#     asyncio.run(pump_fun_listener())
+
+######################################################################################################################################################
+######################################################################################################################################################
+######################################################################################################################################################
+# pumplistener/listener.py
+
 import asyncio
 import websockets
 import json
 import time
 import os
-import httpx  # For making async HTTP requests
+import httpx 	# For making async HTTP requests
 # import base58
 from django.utils import timezone
 from asgiref.sync import sync_to_async
@@ -231,7 +528,7 @@ load_dotenv()
 # --- CONFIGURATION ---
 PUMPORTAL_WSS = "wss://pumpportal.fun/api/data"
 HELIUS_API_KEY = os.environ.get('HELIUS_API_KEY')
-MORALIS_API_KEY = os.environ.get('MORALIS_API_KEY')
+# MORALIS_API_KEY = os.environ.get('MORALIS_API_KEY') # This is no longer needed
 HELIUS_RPC_URL = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
 
 # --- Load the watchlist ---
@@ -239,7 +536,7 @@ watchlist_str = os.environ.get('CREATOR_WATCHLIST', '')
 WATCHLIST_CREATORS = set(watchlist_str.split(','))
 
 ############################################################################################################################
-# --- NEW: Load Multiple Moralis Keys ---
+# --- Load Multiple Moralis Keys ---
 moralis_keys_str = os.environ.get('MORALIS_API_KEYS', '')
 MORALIS_API_KEYS = [key.strip() for key in moralis_keys_str.split(',') if key.strip()]
 
@@ -249,21 +546,23 @@ if not MORALIS_API_KEYS:
 print(f"✅ Loaded {len(MORALIS_API_KEYS)} Moralis API keys.")
 
 # *************************************************************************************************************************
+# --- MODIFIED: Key rotation logic with asyncio.Lock to prevent race conditions ---
 
-# --- NEW: Add this right after loading the keys ---
+# Create a lock to ensure only one task can get a key at a time
+moralis_key_lock = asyncio.Lock()
 current_moralis_key_index = 0
 
-def get_next_moralis_key():
-    """Gets the next Moralis API key from the list in rotation."""
+async def get_next_moralis_key():
+    """
+    Gets the next Moralis API key from the list in a task-safe way.
+    """
     global current_moralis_key_index
-    
-    # Get the current key
-    key = MORALIS_API_KEYS[current_moralis_key_index]
-    
-    # Move to the next index for the next call, wrapping around if necessary
-    current_moralis_key_index = (current_moralis_key_index + 1) % len(MORALIS_API_KEYS)
-    
-    return key
+
+    async with moralis_key_lock:
+        # This code is now protected. Only one task can execute it at a time.
+        key = MORALIS_API_KEYS[current_moralis_key_index]
+        current_moralis_key_index = (current_moralis_key_index + 1) % len(MORALIS_API_KEYS)
+        return key
 #############################################################################################################################
 
 # --- Database Functions (from previous steps) ---
@@ -286,48 +585,48 @@ def save_data_point(token: Token, api_data: dict):
 
 # --- NEW: Real API Helper Functions ---
 # async def get_helius_top_holders_count(mint_address: str):
-#     """(Based on helius1.py) Fetches the count of the top 20 holders."""
-#     payload = {
-#         "jsonrpc": "2.0", "id": "helius-v1", "method": "getTokenLargestAccounts", "params": [mint_address]
-#     }
-#     async with httpx.AsyncClient() as client:
-#         try:
-#             response = await client.post(HELIUS_RPC_URL, json=payload, timeout=10)
-#             response.raise_for_status()
-#             data = response.json()
-#             count = len(data.get('result', {}).get('value', []))
-#             return {"source": "helius_top_20_count", "holder_count": count}
-#         except Exception as e:
-#             print(f"🚨 Error fetching from Helius: {e}")
-#             return {"source": "helius_top_20_count", "error": str(e)}
+# 	 """(Based on helius1.py) Fetches the count of the top 20 holders."""
+# 	 payload = {
+# 		 "jsonrpc": "2.0", "id": "helius-v1", "method": "getTokenLargestAccounts", "params": [mint_address]
+# 	 }
+# 	 async with httpx.AsyncClient() as client:
+# 		 try:
+# 			 response = await client.post(HELIUS_RPC_URL, json=payload, timeout=10)
+# 			 response.raise_for_status()
+# 			 data = response.json()
+# 			 count = len(data.get('result', {}).get('value', []))
+# 			 return {"source": "helius_top_20_count", "holder_count": count}
+# 		 except Exception as e:
+# 			 print(f"🚨 Error fetching from Helius: {e}")
+# 			 return {"source": "helius_top_20_count", "error": str(e)}
 
 # async def get_moralis_metadata(mint_address: str):
-#     """(Based on moralis1.py) Fetches metadata including FDV."""
-#     url = f"https://solana-gateway.moralis.io/token/mainnet/{mint_address}/metadata"
-#     headers = {"Accept": "application/json", "X-API-Key": MORALIS_API_KEY}
-#     async with httpx.AsyncClient() as client:
-#         try:
-#             response = await client.get(url, headers=headers, timeout=10)
-#             response.raise_for_status()
-#             data = response.json()
-#             return {"source": "moralis_metadata", "fdv": data.get('fullyDilutedValuation'), "socials": data.get('associated_websites')}
-#         except Exception as e:
-#             print(f"🚨 Error fetching from Moralis (Metadata): {e}")
-#             return {"source": "moralis_metadata", "error": str(e)}
+# 	 """(Based on moralis1.py) Fetches metadata including FDV."""
+# 	 url = f"https://solana-gateway.moralis.io/token/mainnet/{mint_address}/metadata"
+# 	 headers = {"Accept": "application/json", "X-API-Key": MORALIS_API_KEY}
+# 	 async with httpx.AsyncClient() as client:
+# 		 try:
+# 			 response = await client.get(url, headers=headers, timeout=10)
+# 			 response.raise_for_status()
+# 			 data = response.json()
+# 			 return {"source": "moralis_metadata", "fdv": data.get('fullyDilutedValuation'), "socials": data.get('associated_websites')}
+# 		 except Exception as e:
+# 			 print(f"🚨 Error fetching from Moralis (Metadata): {e}")
+# 			 return {"source": "moralis_metadata", "error": str(e)}
 
 # async def get_moralis_holder_stats(mint_address: str):
-#     """(Based on moralis2.py) Fetches detailed holder statistics."""
-#     url = f"https://solana-gateway.moralis.io/token/mainnet/holders/{mint_address}"
-#     headers = {"Accept": "application/json", "X-API-Key": MORALIS_API_KEY}
-#     async with httpx.AsyncClient() as client:
-#         try:
-#             response = await client.get(url, headers=headers, timeout=10)
-#             response.raise_for_status()
-#             data = response.json()
-#             return {"source": "moralis_holder_stats", "total_holders": data.get('total'), "top_10_percent": data.get('top_10_holders_percentage')}
-#         except Exception as e:
-#             print(f"🚨 Error fetching from Moralis (Holders): {e}")
-#             return {"source": "moralis_holder_stats", "error": str(e)}
+# 	 """(Based on moralis2.py) Fetches detailed holder statistics."""
+# 	 url = f"https://solana-gateway.moralis.io/token/mainnet/holders/{mint_address}"
+# 	 headers = {"Accept": "application/json", "X-API-Key": MORALIS_API_KEY}
+# 	 async with httpx.AsyncClient() as client:
+# 		 try:
+# 			 response = await client.get(url, headers=headers, timeout=10)
+# 			 response.raise_for_status()
+# 			 data = response.json()
+# 			 return {"source": "moralis_holder_stats", "total_holders": data.get('total'), "top_10_percent": data.get('top_10_holders_percentage')}
+# 		 except Exception as e:
+# 			 print(f"🚨 Error fetching from Moralis (Holders): {e}")
+# 			 return {"source": "moralis_holder_stats", "error": str(e)}
 
 # ************************************************************************************************************************************************************
 
@@ -352,9 +651,9 @@ async def get_moralis_metadata(mint_address: str):
     url = f"https://solana-gateway.moralis.io/token/mainnet/{mint_address}/metadata"
     ################################################################################################################
     # headers = {"Accept": "application/json", "X-API-Key": MORALIS_API_KEY, "x-source": "pumpfun_tracker"}
-        # --- MODIFIED LINE ---
+    # --- MODIFIED LINE ---
     # Use the rotating key function instead of a single key variable
-    api_key = get_next_moralis_key() 
+    api_key = await get_next_moralis_key()
     # headers = {"Accept": "application/json", "X-API-Key": api_key, "x-source": "pumpfun_tracker"}
     headers = {"Accept": "application/json", "X-API-Key": api_key}
     ##################################################################################################################
@@ -368,7 +667,7 @@ async def get_moralis_metadata(mint_address: str):
             # --- CHANGE THIS: Return the full data payload ---
             return {"source": "moralis_metadata", "data": data}
         except Exception as e:
-            print(f"🚨 Error fetching from Moralis (Metadata): {e}")
+            print(f"🚨 Error fetching from Moralis (Metadata) with key ending in ...{api_key[-4:]}: {e}")
             return {"source": "moralis_metadata", "error": str(e)}
 
 async def get_moralis_holder_stats(mint_address: str):
@@ -378,7 +677,7 @@ async def get_moralis_holder_stats(mint_address: str):
     # headers = {"Accept": "application/json", "X-API-Key": MORALIS_API_KEY, "x-source": "pumpfun_tracker"}
     # --- MODIFIED LINE ---
     # Use the rotating key function instead of a single key variable
-    api_key = get_next_moralis_key() 
+    api_key = await get_next_moralis_key()
     # headers = {"Accept": "application/json", "X-API-Key": api_key, "x-source": "pumpfun_tracker"}
     headers = {"Accept": "application/json", "X-API-Key": api_key}
     ###############################################################################################################################
@@ -392,7 +691,7 @@ async def get_moralis_holder_stats(mint_address: str):
             # --- CHANGE THIS: Return the full data payload ---
             return {"source": "moralis_holder_stats", "data": data}
         except Exception as e:
-            print(f"🚨 Error fetching from Moralis (Holders): {e}")
+            print(f"🚨 Error fetching from Moralis (Holders) with key ending in ...{api_key[-4:]}: {e}")
             return {"source": "moralis_holder_stats", "error": str(e)}
 
 ###################################################################################################################################
@@ -404,7 +703,7 @@ async def collect_data_for_watchlist_coin(token: Token):
     
     # T+30s check
     await asyncio.sleep(30)
-    print(f"  -> [{token.symbol}] Running T+30s check...")
+    print(f" 	-> [{token.symbol}] Running T+30s check...")
     helius_data = await get_helius_top_holders_count(mint)
     await save_data_point(token, helius_data)
     moralis_fdv = await get_moralis_metadata(mint)
@@ -414,7 +713,7 @@ async def collect_data_for_watchlist_coin(token: Token):
     for i in range(9):
         await asyncio.sleep(30)
         check_time = (i + 2) * 30
-        print(f"  -> [{token.symbol}] Running T+{check_time}s check...")
+        print(f" 	-> [{token.symbol}] Running T+{check_time}s check...")
         
         moralis_stats = await get_moralis_holder_stats(mint)
         await save_data_point(token, moralis_stats)
@@ -430,7 +729,12 @@ async def pump_fun_listener():
             subscribe_message = {"method": "subscribeNewToken"}
             await websocket.send(json.dumps(subscribe_message))
             print("✅ WebSocket Connected and Subscribed.")
-            
+
+            #####################################################################
+            # --- 1. Initialize a counter for the simulation ---
+            # token_creation_counter = 0
+            ######################################################################
+
             while True:
                 message = await websocket.recv()
                 data = json.loads(message)
@@ -439,23 +743,29 @@ async def pump_fun_listener():
                     # is_on_watchlist = creator_address in WATCHLIST_CREATORS
                     
                     # token_data = {
-                    #     'timestamp': timezone.now(),
-                    #     'name': data.get('name', 'N/A'),
-                    #     'symbol': data.get('symbol', 'N/A'),
-                    #     'mint_address': data.get('mint', 'N/A'),
-                    #     'sol_amount': data.get('solAmount', 0),
-                    #     'creator_address': creator_address,
-                    #     'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
-                    #     'is_from_watchlist': is_on_watchlist
+                    # 	 'timestamp': timezone.now(),
+                    # 	 'name': data.get('name', 'N/A'),
+                    # 	 'symbol': data.get('symbol', 'N/A'),
+                    # 	 'mint_address': data.get('mint', 'N/A'),
+                    # 	 'sol_amount': data.get('solAmount', 0),
+                    # 	 'creator_address': creator_address,
+                    # 	 'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
+                    # 	 'is_from_watchlist': is_on_watchlist
                     # }
 
                     ist_time = datetime.utcnow() + timedelta(hours=5, minutes=30)
                     creator_address = data.get('traderPublicKey', 'N/A')
 
+                    ################################################################
+                    # --- 2. Increment the counter for each new coin ---
+                    # token_creation_counter += 1
+                    ################################################################
+
                     # --- Check if the creator is on our watchlist ---
                     ################################################################
                     is_on_watchlist = creator_address in WATCHLIST_CREATORS
                     # is_on_watchlist = True
+                    # is_on_watchlist = (token_creation_counter % 5 == 0)
                     #################################################################
                     ##################################################################
 
