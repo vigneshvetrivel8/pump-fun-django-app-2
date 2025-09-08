@@ -355,8 +355,8 @@ async def get_moralis_metadata(mint_address: str):
         # --- MODIFIED LINE ---
     # Use the rotating key function instead of a single key variable
     api_key = get_next_moralis_key() 
-    headers = {"Accept": "application/json", "X-API-Key": api_key, "x-source": "pumpfun_tracker"}
-    # headers = {"Accept": "application/json", "X-API-Key": api_key}
+    # headers = {"Accept": "application/json", "X-API-Key": api_key, "x-source": "pumpfun_tracker"}
+    headers = {"Accept": "application/json", "X-API-Key": api_key}
     ##################################################################################################################
     async with httpx.AsyncClient() as client:
         try:
@@ -379,8 +379,8 @@ async def get_moralis_holder_stats(mint_address: str):
     # --- MODIFIED LINE ---
     # Use the rotating key function instead of a single key variable
     api_key = get_next_moralis_key() 
-    headers = {"Accept": "application/json", "X-API-Key": api_key, "x-source": "pumpfun_tracker"}
-    # headers = {"Accept": "application/json", "X-API-Key": api_key}
+    # headers = {"Accept": "application/json", "X-API-Key": api_key, "x-source": "pumpfun_tracker"}
+    headers = {"Accept": "application/json", "X-API-Key": api_key}
     ###############################################################################################################################
     async with httpx.AsyncClient() as client:
         try:
