@@ -452,6 +452,7 @@ async def pump_fun_listener():
                     ################################################################
                     is_on_watchlist = creator_address in WATCHLIST_CREATORS
                     # is_on_watchlist = True
+                    #################################################################
                     ##################################################################
 
                     # --- THIS IS THE NEW LOGIC TO SAVE TO THE DATABASE ---
