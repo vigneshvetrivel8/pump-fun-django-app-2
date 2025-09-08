@@ -238,6 +238,34 @@ HELIUS_RPC_URL = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
 watchlist_str = os.environ.get('CREATOR_WATCHLIST', '')
 WATCHLIST_CREATORS = set(watchlist_str.split(','))
 
+############################################################################################################################
+# --- NEW: Load Multiple Moralis Keys ---
+moralis_keys_str = os.environ.get('MORALIS_API_KEYS', '')
+MORALIS_API_KEYS = [key.strip() for key in moralis_keys_str.split(',') if key.strip()]
+
+if not MORALIS_API_KEYS:
+    raise ValueError("🚨 No Moralis API keys found in .env file. Please set MORALIS_API_KEYS.")
+
+print(f"✅ Loaded {len(MORALIS_API_KEYS)} Moralis API keys.")
+
+# *************************************************************************************************************************
+
+# --- NEW: Add this right after loading the keys ---
+current_moralis_key_index = 0
+
+def get_next_moralis_key():
+    """Gets the next Moralis API key from the list in rotation."""
+    global current_moralis_key_index
+    
+    # Get the current key
+    key = MORALIS_API_KEYS[current_moralis_key_index]
+    
+    # Move to the next index for the next call, wrapping around if necessary
+    current_moralis_key_index = (current_moralis_key_index + 1) % len(MORALIS_API_KEYS)
+    
+    return key
+#############################################################################################################################
+
 # --- Database Functions (from previous steps) ---
 @sync_to_async
 def save_token_to_db(token_data):
@@ -322,7 +350,13 @@ async def get_helius_top_holders_count(mint_address: str):
 async def get_moralis_metadata(mint_address: str):
     """Fetches metadata including FDV from Moralis."""
     url = f"https://solana-gateway.moralis.io/token/mainnet/{mint_address}/metadata"
-    headers = {"Accept": "application/json", "X-API-Key": MORALIS_API_KEY, "x-source": "pumpfun_tracker"}
+    ################################################################################################################
+    # headers = {"Accept": "application/json", "X-API-Key": MORALIS_API_KEY, "x-source": "pumpfun_tracker"}
+        # --- MODIFIED LINE ---
+    # Use the rotating key function instead of a single key variable
+    api_key = get_next_moralis_key() 
+    headers = {"Accept": "application/json", "X-API-Key": api_key, "x-source": "pumpfun_tracker"}
+    ##################################################################################################################
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(url, headers=headers, timeout=10)
@@ -338,7 +372,13 @@ async def get_moralis_metadata(mint_address: str):
 async def get_moralis_holder_stats(mint_address: str):
     """Fetches detailed holder statistics from Moralis."""
     url = f"https://solana-gateway.moralis.io/token/mainnet/holders/{mint_address}"
-    headers = {"Accept": "application/json", "X-API-Key": MORALIS_API_KEY, "x-source": "pumpfun_tracker"}
+    ##############################################################################################################################
+    # headers = {"Accept": "application/json", "X-API-Key": MORALIS_API_KEY, "x-source": "pumpfun_tracker"}
+    # --- MODIFIED LINE ---
+    # Use the rotating key function instead of a single key variable
+    api_key = get_next_moralis_key() 
+    headers = {"Accept": "application/json", "X-API-Key": api_key, "x-source": "pumpfun_tracker"}
+    ###############################################################################################################################
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(url, headers=headers, timeout=10)
