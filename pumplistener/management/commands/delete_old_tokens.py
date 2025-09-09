@@ -47,10 +47,7 @@ class Command(BaseCommand):
         self.stdout.write("Fetching all tokens for the report...")
         # ... (The entire email sending part remains exactly the same) ...
         # all_tokens = Token.objects.order_by('-timestamp')
-        # all_tokens = Token.objects.prefetch_related('data_points').order_by('-timestamp')
-        # In delete_old_tokens.py
-        # This is much more memory-efficient
-        all_tokens = Token.objects.prefetch_related('data_points').order_by('-timestamp').iterator()
+        all_tokens = Token.objects.prefetch_related('data_points').order_by('-timestamp')
         recipient_email = os.environ.get('REPORT_RECIPIENT_EMAIL')
         
         if all_tokens.exists() and recipient_email:
