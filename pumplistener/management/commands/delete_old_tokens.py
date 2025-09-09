@@ -79,8 +79,8 @@ class Command(BaseCommand):
         
         # Set your desired duration (e.g., 2 hours)
         # cutoff_duration = timedelta(hours=4)
-        # cutoff_duration = timedelta(minutes=15)
-        cutoff_duration = timedelta(hours=2)
+        cutoff_duration = timedelta(minutes=15)
+        # cutoff_duration = timedelta(hours=2)
         
         # Calculate the cutoff time based on the correct IST time
         cutoff_time = current_ist_time - cutoff_duration
