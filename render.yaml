@@ -15,7 +15,9 @@ services:
       pip install -r requirements.txt
       python manage.py migrate 
     # ⚠️ CRITICAL: Replace 'pumpfunproject.wsgi' with your project's name!
-    startCommand: "gunicorn pumpfunproject.wsgi"
+    # startCommand: "gunicorn pumpfunproject.wsgi"
+    # In render.yaml
+    startCommand: "gunicorn pumpfunproject.wsgi --timeout 120"
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.4
