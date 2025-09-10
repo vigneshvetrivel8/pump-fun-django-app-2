@@ -60,8 +60,8 @@ class Command(BaseCommand):
         #     })
         
         ###############################################################################################################
-        # --- NEW: Define a time window for the report (e.g., last 30 minutes) ---
-        report_window = timezone.now() - timedelta(minutes=30)
+        # --- NEW: Define a time window for the report (e.g., last 15 minutes) ---
+        report_window = timezone.now() - timedelta(minutes=15)
         self.stdout.write(f"Fetching tokens created since {report_window} for the report...")
 
         # --- MODIFIED: Filter tokens to only include recent ones ---
