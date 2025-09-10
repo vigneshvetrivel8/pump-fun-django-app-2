@@ -47,14 +47,31 @@ class Command(BaseCommand):
         self.stdout.write("Fetching all tokens for the report...")
         # ... (The entire email sending part remains exactly the same) ...
         # all_tokens = Token.objects.order_by('-timestamp')
-        all_tokens = Token.objects.prefetch_related('data_points').order_by('-timestamp')
+        #############################################################################################################
+        # all_tokens = Token.objects.prefetch_related('data_points').order_by('-timestamp')
+        # recipient_email = os.environ.get('REPORT_RECIPIENT_EMAIL')
+        
+        # if all_tokens.exists() and recipient_email:
+        #     # report_time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S IST')
+        #     report_time_str = datetime.utcnow() + timedelta(hours=5, minutes=30)
+        #     html_message = render_to_string('pumplistener/email_report.html', {
+        #         'tokens': all_tokens,
+        #         'report_time': report_time_str
+        #     })
+        
+        ###############################################################################################################
+        # --- NEW: Define a time window for the report (e.g., last 30 minutes) ---
+        report_window = timezone.now() - timedelta(minutes=30)
+        self.stdout.write(f"Fetching tokens created since {report_window} for the report...")
+
+        # --- MODIFIED: Filter tokens to only include recent ones ---
+        recent_tokens = Token.objects.filter(timestamp__gte=report_window).prefetch_related('data_points').order_by('-timestamp')
         recipient_email = os.environ.get('REPORT_RECIPIENT_EMAIL')
         
-        if all_tokens.exists() and recipient_email:
-            # report_time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S IST')
+        if recent_tokens.exists() and recipient_email:
             report_time_str = datetime.utcnow() + timedelta(hours=5, minutes=30)
             html_message = render_to_string('pumplistener/email_report.html', {
-                'tokens': all_tokens,
+                'tokens': recent_tokens, # <-- Use the filtered list of recent tokens
                 'report_time': report_time_str
             })
             subject = f"Pump.fun Token Report - {report_time_str}"
