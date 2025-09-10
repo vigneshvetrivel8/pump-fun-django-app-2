@@ -523,6 +523,8 @@ from solders.transaction import VersionedTransaction
 from solana.rpc.async_api import AsyncClient
 from dotenv import load_dotenv
 
+from django.utils import timezone
+
 load_dotenv()
 
 # --- CONFIGURATION ---
@@ -773,7 +775,8 @@ async def pump_fun_listener():
                     token_data = {
                         # 'timestamp': datetime.now(ZoneInfo("Asia/Kolkata")),
                         # 'timestamp': datetime.now(),
-                        'timestamp': ist_time,
+                        # 'timestamp': ist_time,
+                        'timestamp': timezone.now(),
                         'name': data.get('name', 'N/A'),
                         'symbol': data.get('symbol', 'N/A'),
                         'mint_address': data.get('mint', 'N/A'),
