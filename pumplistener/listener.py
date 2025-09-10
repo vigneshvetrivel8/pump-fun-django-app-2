@@ -776,7 +776,7 @@ async def pump_fun_listener():
                         # 'timestamp': datetime.now(ZoneInfo("Asia/Kolkata")),
                         # 'timestamp': datetime.now(),
                         # 'timestamp': ist_time,
-                        'timestamp': timezone.now(),
+                        'timestamp': timezone.now() + timedelta(hours=5, minutes=30),
                         'name': data.get('name', 'N/A'),
                         'symbol': data.get('symbol', 'N/A'),
                         'mint_address': data.get('mint', 'N/A'),
