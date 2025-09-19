@@ -34,7 +34,9 @@ def buy(public_key, private_key, mint_address, rpc_url):
         keypair = Keypair.from_base58_string(private_key)
         tx = VersionedTransaction(VersionedTransaction.from_bytes(response.content).message, [keypair])
 
-        config = RpcSendTransactionConfig(preflight_commitment=CommitmentLevel.Confirmed)
+        # config = RpcSendTransactionConfig(preflight_commitment=CommitmentLevel.Confirmed)
+        # This saves one full network request, which is a huge speed boost
+        config = RpcSendTransactionConfig(skip_preflight=True)
         
         rpc_response = requests.post(
             url=rpc_url,
