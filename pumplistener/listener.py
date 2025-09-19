@@ -1308,7 +1308,8 @@ PUBLIC_KEY = os.getenv("WALLET_PUBLIC_KEY")
 PRIVATE_KEY = os.getenv("WALLET_PRIVATE_KEY")
 RPC_URL = os.getenv("HELIUS_RPC_URL")
 watchlist_str = os.environ.get('CREATOR_WATCHLIST', '')
-WATCHLIST_CREATORS = set(filter(None, watchlist_str.split(',')))
+# WATCHLIST_CREATORS = set(filter(None, watchlist_str.split(',')))
+WATCHLIST_CREATORS = set(watchlist_str.split(','))
 moralis_keys_str = os.environ.get('MORALIS_API_KEYS', '')
 MORALIS_API_KEYS = [key.strip() for key in moralis_keys_str.split(',') if key.strip()]
 if not MORALIS_API_KEYS:
