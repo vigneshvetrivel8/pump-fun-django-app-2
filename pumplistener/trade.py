@@ -21,7 +21,7 @@ def buy(public_key, private_key, mint_address, rpc_url):
             "publicKey": public_key,
             "action": "buy",
             "mint": mint_address,
-            "amount": 0.009,
+            "amount": 0.0075,
             "denominatedInSol": "true",
             "slippage": 25,
             # "priorityFee": 0.0001,
