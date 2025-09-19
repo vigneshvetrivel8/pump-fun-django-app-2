@@ -10,3 +10,4 @@ solana
 solders
 python-dotenv
 jito-py-rpc
+base58
