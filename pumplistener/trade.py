@@ -53,13 +53,17 @@ def buy(public_key, private_key, mint_address, rpc_url):
         if 'result' in data:
             txSignature = data['result']
             print(f'✅ BUY successful! Transaction: https://solscan.io/tx/{txSignature}')
+            return txSignature # <-- RETURN THE SIGNATURE
         else:
             print(f"❌ BUY failed. Response: {data}")
+            return None # <-- RETURN NONE ON FAILURE
 
     except requests.exceptions.RequestException as e:
         print(f"❌ An error occurred during the API request: {e}")
+        return None # <-- RETURN NONE ON EXCEPTION
     except Exception as e:
         print(f"❌ An unexpected error occurred in buy(): {e}")
+        return None # <-- RETURN NONE ON EXCEPTION
 
 
 def sell(public_key, private_key, mint_address, rpc_url):
@@ -102,8 +106,15 @@ def sell(public_key, private_key, mint_address, rpc_url):
     print("#" * 150)
     print(response.json())
     print("#" * 150)
-    txSignature = response.json()['result']
-    print(f'Transaction: https://solscan.io/tx/{txSignature}')
+    if 'result' in response.json():
+        txSignature = response.json()['result']
+        print(f'✅ SELL successful! Transaction: https://solscan.io/tx/{txSignature}')
+        return txSignature # <-- RETURN THE SIGNATURE
+    else:
+        print(f"❌ SELL failed. Response: {response.json()}")
+        return None # <-- RETURN NONE ON FAILURE
+    # txSignature = response.json()['result']
+    # print(f'Transaction: https://solscan.io/tx/{txSignature}')
 
-    # except Exception as e:
-    #     print(f"❌ An unexpected error occurred in sell(): {e}")
+    # # except Exception as e:
+    # #     print(f"❌ An unexpected error occurred in sell(): {e}")

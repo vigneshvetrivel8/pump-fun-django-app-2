@@ -525,6 +525,11 @@ from dotenv import load_dotenv
 
 from django.utils import timezone
 
+# ====================================================================================================
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.conf import settings
+# ====================================================================================================
 
 #######################################################################################################
 #######################################################################################################
@@ -870,100 +875,357 @@ async def collect_data_for_watchlist_coin(token: Token):
 ######################################################################################################################
 ######################################################################################################################
 
-# --- Main listener function (from previous steps) ---
+
+# ====================================================================================================================
+# --- NEW: Asynchronous function to send the trade notification email ---
+@sync_to_async
+def send_trade_notification_email(token, buy_sig, sell_sig):
+    """
+    Renders and sends an email report for a completed trade.
+    This function is decorated to run Django's sync code in an async-safe way.
+    """
+    recipient_email = os.environ.get('REPORT_RECIPIENT_EMAIL')
+    if not recipient_email:
+        print("⚠️ Cannot send trade notification, REPORT_RECIPIENT_EMAIL not set.")
+        return
+
+    print(f"📧 Preparing trade notification email for {token.symbol}...")
+    try:
+        subject = f"Watchlist Trade Alert: ${token.symbol}"
+        html_message = render_to_string('pumplistener/trade_notification_email.html', {
+            'token': token,
+            'buy_sig': buy_sig,
+            'sell_sig': sell_sig,
+        })
+        
+        send_mail(
+            subject,
+            "A trade was executed for a token on your watchlist.",
+            settings.DEFAULT_FROM_EMAIL,
+            [recipient_email],
+            html_message=html_message
+        )
+        print(f"✅ Trade notification for ${token.symbol} sent to {recipient_email}")
+    except Exception as e:
+        print(f"🚨 Failed to send trade notification email: {e}")
+
+# ====================================================================================================================
+# --- NEW: Orchestrator to run the full trade cycle without blocking the listener ---
+# async def execute_trade_strategy(token_object, public_key, private_key, rpc_url):
+#     """
+#     Runs the entire buy -> wait -> sell -> notify sequence.
+#     """
+#     mint_address = token_object.mint_address
+
+#     # Run the synchronous, blocking trade.buy() in a separate thread
+#     buy_signature = await asyncio.to_thread(
+#         trade.buy, public_key, private_key, mint_address, rpc_url
+#     )
+
+#     # Use asyncio.sleep() which is non-blocking
+#     print(f"\n--- Waiting for 1.5 seconds before selling {token_object.symbol} ---\n")
+#     await asyncio.sleep(1.5)
+
+#     # Run the synchronous, blocking trade.sell() in a separate thread
+#     sell_signature = await asyncio.to_thread(
+#         trade.sell, public_key, private_key, mint_address, rpc_url
+#     )
+    
+#     # After trading is complete, send the email notification
+#     await send_trade_notification_email(token_object, buy_signature, sell_signature)
+
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+
+# --- STRATEGY & DATA COLLECTION FUNCTIONS ---
+
+# async def run_trade_cycle(public_key, private_key, mint_address, rpc_url):
+#     """A dedicated async function just for the buy/sell logic."""
+#     buy_sig = await asyncio.to_thread(trade.buy, public_key, private_key, mint_address, rpc_url)
+#     print(f"\n--- Waiting 1.5 seconds before selling ---\n")
+#     await asyncio.sleep(1.5)
+#     sell_sig = await asyncio.to_thread(trade.sell, public_key, private_key, mint_address, rpc_url)
+#     return buy_sig, sell_sig
+
+
+# # --- MODIFIED: HYPER-OPTIMIZED STRATEGY ORCHESTRATOR ---
+# async def execute_trade_strategy(token_websocket_data, public_key, private_key, rpc_url):
+#     """
+#     Handles the entire lifecycle for a watchlist token with maximum speed.
+#     """
+#     mint_address = token_websocket_data.get('mint')
+#     if not mint_address:
+#         print("🚨 Cannot execute trade, mint address is missing.")
+#         return
+
+#     # 1. Immediately start the trade cycle as a background task.
+#     trade_task = asyncio.create_task(
+#         run_trade_cycle(public_key, private_key, mint_address, rpc_url)
+#     )
+
+#     print(f"📈 Watchlist hit for {token_websocket_data.get('symbol')}. Firing trade task immediately...")
+
+#     # 2. In parallel, prepare and start saving the token to the database.
+#     token_db_data = {
+#         'timestamp': timezone.now(),
+#         'name': token_websocket_data.get('name', 'N/A'),
+#         'symbol': token_websocket_data.get('symbol', 'N/A'),
+#         'mint_address': mint_address,
+#         'sol_amount': token_websocket_data.get('solAmount', 0),
+#         'creator_address': token_websocket_data.get('traderPublicKey', 'N/A'),
+#         'pump_fun_link': f"https://pump.fun/{mint_address}",
+#         'is_from_watchlist': True
+#     }
+#     db_save_task = asyncio.create_task(save_token_to_db(token_db_data))
+
+#     # 3. Now, wait for both critical tasks to complete.
+#     trade_signatures = await trade_task
+#     token_object = await db_save_task
+#     buy_signature, sell_signature = trade_signatures
+
+#     # 4. Once the trade is done and the token is saved, start the post-trade tasks.
+#     if token_object:
+#         print(f"✅ Trade and DB save complete for {token_object.symbol}. Starting post-trade actions.")
+#         # These can also run in parallel for efficiency
+#         await asyncio.gather(
+#             send_trade_notification_email(token_object, buy_signature, sell_signature),
+#             collect_data_for_watchlist_coin(token_object)
+#         )
+#     else:
+#         print(f"🚨 Could not run post-trade actions for {mint_address}, token object not available.")
+
+
+# # ====================================================================================================================
+
+# # --- Main listener function (from previous steps) ---
+# async def pump_fun_listener():
+#     print("🎧 Starting Pump.fun WebSocket listener...")
+#     async for websocket in websockets.connect(PUMPORTAL_WSS):
+#         try:
+#             subscribe_message = {"method": "subscribeNewToken"}
+#             await websocket.send(json.dumps(subscribe_message))
+#             print("✅ WebSocket Connected and Subscribed.")
+
+#             #####################################################################
+#             # --- 1. Initialize a counter for the simulation ---
+#             # token_creation_counter = 0
+#             ######################################################################
+
+#             while True:
+#                 message = await websocket.recv()
+#                 data = json.loads(message)
+#                 if data and data.get('txType') == 'create':
+#                     # creator_address = data.get('creator', 'N/A')
+#                     # is_on_watchlist = creator_address in WATCHLIST_CREATORS
+                    
+#                     # token_data = {
+#                     # 	 'timestamp': timezone.now(),
+#                     # 	 'name': data.get('name', 'N/A'),
+#                     # 	 'symbol': data.get('symbol', 'N/A'),
+#                     # 	 'mint_address': data.get('mint', 'N/A'),
+#                     # 	 'sol_amount': data.get('solAmount', 0),
+#                     # 	 'creator_address': creator_address,
+#                     # 	 'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
+#                     # 	 'is_from_watchlist': is_on_watchlist
+#                     # }
+
+#                     creator_address = data.get('traderPublicKey', 'N/A')
+                    
+#                     if creator_address in WATCHLIST_CREATORS:
+#                         # Immediately create one task for the entire watchlist lifecycle and move on.
+#                         asyncio.create_task(
+#                             execute_trade_strategy(data, PUBLIC_KEY, PRIVATE_KEY, RPC_URL)
+#                         )
+
+#                     ist_time = datetime.utcnow() + timedelta(hours=5, minutes=30)
+
+#                     ################################################################
+#                     # --- 2. Increment the counter for each new coin ---
+#                     # token_creation_counter += 1
+#                     ################################################################
+
+#                     # --- Check if the creator is on our watchlist ---
+#                     ################################################################
+#                     is_on_watchlist = creator_address in WATCHLIST_CREATORS
+#                     # is_on_watchlist = True
+#                     # is_on_watchlist = (token_creation_counter % 5 == 0)
+#                     #################################################################
+#                     ##################################################################
+
+#                     # --- THIS IS THE NEW LOGIC TO SAVE TO THE DATABASE ---
+#                     token_data = {
+#                         # 'timestamp': datetime.now(ZoneInfo("Asia/Kolkata")),
+#                         # 'timestamp': datetime.now(),
+#                         # 'timestamp': ist_time,
+#                         'timestamp': timezone.now() + timedelta(hours=5, minutes=30),
+#                         'name': data.get('name', 'N/A'),
+#                         'symbol': data.get('symbol', 'N/A'),
+#                         'mint_address': data.get('mint', 'N/A'),
+#                         'sol_amount': data.get('solAmount', 0),
+#                         'creator_address': creator_address,
+#                         'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
+#                         'is_from_watchlist': is_on_watchlist # <--- ADD THIS
+#                     }
+                    
+#                     token_object = await save_token_to_db(token_data)
+
+#                     # if token_object and token_object.is_from_watchlist:
+#                     #     #########################################################################################
+#                     #     # --- CALL THE NEW FLIP STRATEGY ---
+#                     #     # asyncio.create_task(execute_jito_flip_strategy(token_object))
+#                     #     # if data.get('mint'):
+#                     #     #     MINT_ADDRESS = data.get('mint')
+#                     #     #     # Ensure all variables are loaded correctly
+#                     #     #     if not all([PUBLIC_KEY, PRIVATE_KEY, MINT_ADDRESS, RPC_URL]):
+#                     #     #         print("❌ Error: One or more environment variables are not set. Check your .env file.")
+#                     #     #     else:
+#                     #     #         # Pass the variables as arguments to the functions
+#                     #     #         trade.buy(
+#                     #     #             public_key=PUBLIC_KEY, 
+#                     #     #             private_key=PRIVATE_KEY, 
+#                     #     #             mint_address=MINT_ADDRESS, 
+#                     #     #             rpc_url=RPC_URL
+#                     #     #         )
+
+#                     #     #         print("\n--- Waiting for 1.5 seconds before selling ---\n")
+#                     #     #         time.sleep(1.5)
+
+#                     #     #         trade.sell(
+#                     #     #             public_key=PUBLIC_KEY, 
+#                     #     #             private_key=PRIVATE_KEY, 
+#                     #     #             mint_address=MINT_ADDRESS, 
+#                     #     #             rpc_url=RPC_URL
+#                     #     #         )
+#                     #     # ========================================================================================
+#                     #     # --- MODIFIED: Call the non-blocking strategy ---
+#                     #     print(f"📈 Watchlist hit for {token_object.symbol}. Starting trade strategy...")
+#                     #     asyncio.create_task(
+#                     #         execute_trade_strategy(token_object, PUBLIC_KEY, PRIVATE_KEY, RPC_URL)
+#                     #     )
+                        
+#                         # Data collection can still run in parallel
+#                         # asyncio.create_task(collect_data_for_watchlist_coin(token_object))
+#                         # =======================================================================================
+#                         #########################################################################################
+#                     asyncio.create_task(collect_data_for_watchlist_coin(token_object))
+#         except websockets.ConnectionClosed:
+#             print("⚠️ WebSocket connection closed. Reconnecting in 10 seconds...")
+#             await asyncio.sleep(10)
+#         except Exception as e:
+#             print(f"💥 Main listener error: {e}. Reconnecting in 10 seconds...")
+#             await asyncio.sleep(10)
+
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+
+
+# --- STRATEGY & DATA COLLECTION FUNCTIONS ---
+async def run_trade_cycle(public_key, private_key, mint_address, rpc_url):
+    """A dedicated async function just for the buy/sell logic."""
+    buy_sig = await asyncio.to_thread(trade.buy, public_key, private_key, mint_address, rpc_url)
+    print(f"\n--- Waiting 1.5 seconds before selling ---\n")
+    await asyncio.sleep(1.5)
+    sell_sig = await asyncio.to_thread(trade.sell, public_key, private_key, mint_address, rpc_url)
+    return buy_sig, sell_sig
+
+async def execute_trade_strategy(token_websocket_data, public_key, private_key, rpc_url):
+    """Handles the entire lifecycle for a watchlist token with maximum speed."""
+    mint_address = token_websocket_data.get('mint')
+    if not mint_address:
+        print("🚨 Cannot execute trade, mint address is missing.")
+        return
+
+    trade_task = asyncio.create_task(run_trade_cycle(public_key, private_key, mint_address, rpc_url))
+    
+    print(f"📈 Watchlist hit for {token_websocket_data.get('symbol')}. Firing trade task immediately...")
+
+    token_db_data = {
+        'timestamp': timezone.now(),
+        'name': token_websocket_data.get('name', 'N/A'),
+        'symbol': token_websocket_data.get('symbol', 'N/A'),
+        'mint_address': mint_address,
+        'sol_amount': token_websocket_data.get('solAmount', 0),
+        'creator_address': token_websocket_data.get('traderPublicKey', 'N/A'),
+        'pump_fun_link': f"https://pump.fun/{mint_address}",
+        'is_from_watchlist': True
+    }
+    db_save_task = asyncio.create_task(save_token_to_db(token_db_data))
+
+    trade_signatures = await trade_task
+    token_object = await db_save_task
+    buy_signature, sell_signature = trade_signatures
+
+    if token_object:
+        print(f"✅ Trade and DB save complete for {token_object.symbol}. Starting post-trade actions.")
+        await asyncio.gather(
+            send_trade_notification_email(token_object, buy_signature, sell_signature),
+            collect_data_for_watchlist_coin(token_object)
+        )
+    else:
+        print(f"🚨 Could not run post-trade actions for {mint_address}, token object not available.")
+
+# --- CORRECTED MAIN LISTENER LOOP ---
 async def pump_fun_listener():
     print("🎧 Starting Pump.fun WebSocket listener...")
     async for websocket in websockets.connect(PUMPORTAL_WSS):
         try:
-            subscribe_message = {"method": "subscribeNewToken"}
-            await websocket.send(json.dumps(subscribe_message))
+            await websocket.send(json.dumps({"method": "subscribeNewToken"}))
             print("✅ WebSocket Connected and Subscribed.")
-
-            #####################################################################
-            # --- 1. Initialize a counter for the simulation ---
-            # token_creation_counter = 0
-            ######################################################################
-
             while True:
                 message = await websocket.recv()
                 data = json.loads(message)
                 if data and data.get('txType') == 'create':
-                    # creator_address = data.get('creator', 'N/A')
-                    # is_on_watchlist = creator_address in WATCHLIST_CREATORS
-                    
-                    # token_data = {
-                    # 	 'timestamp': timezone.now(),
-                    # 	 'name': data.get('name', 'N/A'),
-                    # 	 'symbol': data.get('symbol', 'N/A'),
-                    # 	 'mint_address': data.get('mint', 'N/A'),
-                    # 	 'sol_amount': data.get('solAmount', 0),
-                    # 	 'creator_address': creator_address,
-                    # 	 'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
-                    # 	 'is_from_watchlist': is_on_watchlist
-                    # }
-
-                    ist_time = datetime.utcnow() + timedelta(hours=5, minutes=30)
                     creator_address = data.get('traderPublicKey', 'N/A')
-
-                    ################################################################
-                    # --- 2. Increment the counter for each new coin ---
-                    # token_creation_counter += 1
-                    ################################################################
-
-                    # --- Check if the creator is on our watchlist ---
-                    ################################################################
-                    is_on_watchlist = creator_address in WATCHLIST_CREATORS
-                    # is_on_watchlist = True
-                    # is_on_watchlist = (token_creation_counter % 5 == 0)
-                    #################################################################
-                    ##################################################################
-
-                    # --- THIS IS THE NEW LOGIC TO SAVE TO THE DATABASE ---
-                    token_data = {
-                        # 'timestamp': datetime.now(ZoneInfo("Asia/Kolkata")),
-                        # 'timestamp': datetime.now(),
-                        # 'timestamp': ist_time,
-                        'timestamp': timezone.now() + timedelta(hours=5, minutes=30),
-                        'name': data.get('name', 'N/A'),
-                        'symbol': data.get('symbol', 'N/A'),
-                        'mint_address': data.get('mint', 'N/A'),
-                        'sol_amount': data.get('solAmount', 0),
-                        'creator_address': creator_address,
-                        'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
-                        'is_from_watchlist': is_on_watchlist # <--- ADD THIS
-                    }
                     
-                    token_object = await save_token_to_db(token_data)
+                    # --- CORRECTED LOGIC ---
+                    if creator_address in WATCHLIST_CREATORS:
+                        # If it's a watchlist token, start the entire non-blocking strategy.
+                        asyncio.create_task(
+                            execute_trade_strategy(data, PUBLIC_KEY, PRIVATE_KEY, RPC_URL)
+                        )
+                    else:
+                        # If it's NOT a watchlist token, just save it to the database.
+                        # This 'await' is acceptable here because it's not a time-critical path.
+                        token_data = {
+                            'timestamp': timezone.now(),
+                            'name': data.get('name', 'N/A'),
+                            'symbol': data.get('symbol', 'N/A'),
+                            'mint_address': data.get('mint', 'N/A'),
+                            'sol_amount': data.get('solAmount', 0),
+                            'creator_address': creator_address,
+                            'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
+                            'is_from_watchlist': False
+                        }
+                        await save_token_to_db(token_data)
 
-                    if token_object and token_object.is_from_watchlist:
-                        #########################################################################################
-                        # --- CALL THE NEW FLIP STRATEGY ---
-                        # asyncio.create_task(execute_jito_flip_strategy(token_object))
-                        if data.get('mint'):
-                            MINT_ADDRESS = data.get('mint')
-                            # Ensure all variables are loaded correctly
-                            if not all([PUBLIC_KEY, PRIVATE_KEY, MINT_ADDRESS, RPC_URL]):
-                                print("❌ Error: One or more environment variables are not set. Check your .env file.")
-                            else:
-                                # Pass the variables as arguments to the functions
-                                trade.buy(
-                                    public_key=PUBLIC_KEY, 
-                                    private_key=PRIVATE_KEY, 
-                                    mint_address=MINT_ADDRESS, 
-                                    rpc_url=RPC_URL
-                                )
-
-                                print("\n--- Waiting for 1.5 seconds before selling ---\n")
-                                time.sleep(1.5)
-
-                                trade.sell(
-                                    public_key=PUBLIC_KEY, 
-                                    private_key=PRIVATE_KEY, 
-                                    mint_address=MINT_ADDRESS, 
-                                    rpc_url=RPC_URL
-                                )
-                        #########################################################################################
-                        asyncio.create_task(collect_data_for_watchlist_coin(token_object))
         except websockets.ConnectionClosed:
             print("⚠️ WebSocket connection closed. Reconnecting in 10 seconds...")
             await asyncio.sleep(10)
@@ -971,7 +1233,280 @@ async def pump_fun_listener():
             print(f"💥 Main listener error: {e}. Reconnecting in 10 seconds...")
             await asyncio.sleep(10)
 
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
 
 # --- Wrapper function to keep the listener running ---
 def run_listener_in_new_loop():
+    asyncio.run(pump_fun_listener())
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###########################################################################################################################
+
+# pumplistener/listener.py
+
+import asyncio
+import websockets
+import json
+import os
+import httpx
+from asgiref.sync import sync_to_async
+from datetime import datetime, timedelta
+
+from django.utils import timezone
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.conf import settings
+from dotenv import load_dotenv
+
+from .models import Token, TokenDataPoint
+from . import trade
+
+# --- Load Environment Variables ---
+load_dotenv()
+
+# --- CONFIGURATION ---
+PUMPORTAL_WSS = "wss://pumpportal.fun/api/data"
+HELIUS_API_KEY = os.environ.get('HELIUS_API_KEY')
+HELIUS_RPC_URL = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
+PUBLIC_KEY = os.getenv("WALLET_PUBLIC_KEY")
+PRIVATE_KEY = os.getenv("WALLET_PRIVATE_KEY")
+RPC_URL = os.getenv("HELIUS_RPC_URL")
+watchlist_str = os.environ.get('CREATOR_WATCHLIST', '')
+WATCHLIST_CREATORS = set(filter(None, watchlist_str.split(',')))
+moralis_keys_str = os.environ.get('MORALIS_API_KEYS', '')
+MORALIS_API_KEYS = [key.strip() for key in moralis_keys_str.split(',') if key.strip()]
+if not MORALIS_API_KEYS:
+    raise ValueError("🚨 No Moralis API keys found. Please set MORALIS_API_KEYS in .env file.")
+print(f"✅ Loaded {len(MORALIS_API_KEYS)} Moralis API keys.")
+moralis_key_lock = asyncio.Lock()
+current_moralis_key_index = 0
+
+# --- HELPER & API FUNCTIONS ---
+async def get_next_moralis_key():
+    """Gets the next Moralis API key from the list in a task-safe way."""
+    global current_moralis_key_index
+    async with moralis_key_lock:
+        key = MORALIS_API_KEYS[current_moralis_key_index]
+        current_moralis_key_index = (current_moralis_key_index + 1) % len(MORALIS_API_KEYS)
+        return key
+
+@sync_to_async
+def save_token_to_db(token_data):
+    """Saves token data to the database, getting or creating the token."""
+    token, created = Token.objects.get_or_create(
+        mint_address=token_data['mint_address'],
+        defaults=token_data
+    )
+    if created:
+        print(f"✅ Saved to DB: {token.name} ({token.symbol})")
+    return token
+
+@sync_to_async
+def send_trade_notification_email(token, buy_sig, sell_sig):
+    """Renders and sends an email report for a completed trade."""
+    recipient_email = os.environ.get('REPORT_RECIPIENT_EMAIL')
+    if not recipient_email:
+        print("⚠️ Cannot send trade notification, REPORT_RECIPIENT_EMAIL not set.")
+        return
+    print(f"📧 Preparing trade notification email for {token.symbol}...")
+    try:
+        subject = f"Watchlist Trade Alert: ${token.symbol}"
+        html_message = render_to_string('pumplistener/trade_notification_email.html', {
+            'token': token, 'buy_sig': buy_sig, 'sell_sig': sell_sig,
+        })
+        send_mail(
+            subject, "A trade was executed for a token on your watchlist.",
+            settings.DEFAULT_FROM_EMAIL, [recipient_email], html_message=html_message
+        )
+        print(f"✅ Trade notification for ${token.symbol} sent to {recipient_email}")
+    except Exception as e:
+        print(f"🚨 Failed to send trade notification email: {e}")
+
+async def get_helius_top_holders_count(mint_address: str):
+    """Fetches the top 20 largest accounts from Helius."""
+    payload = {"jsonrpc": "2.0", "id": "helius-v1", "method": "getTokenLargestAccounts", "params": [mint_address]}
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(HELIUS_RPC_URL, json=payload, timeout=10)
+            response.raise_for_status()
+            return {"source": "helius_getTokenLargestAccounts", "data": response.json()}
+        except Exception as e:
+            print(f"🚨 Error fetching from Helius: {e}")
+            return {"source": "helius_getTokenLargestAccounts", "error": str(e)}
+
+async def get_moralis_metadata(mint_address: str):
+    """Fetches metadata including FDV from Moralis using key rotation."""
+    url = f"https://solana-gateway.moralis.io/token/mainnet/{mint_address}/metadata"
+    api_key = await get_next_moralis_key()
+    headers = {"Accept": "application/json", "X-API-Key": api_key}
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+            return {"source": "moralis_metadata", "data": response.json()}
+        except Exception as e:
+            print(f"🚨 Error fetching from Moralis (Metadata) with key ending in ...{api_key[-4:]}: {e}")
+            return {"source": "moralis_metadata", "error": str(e)}
+
+async def get_moralis_holder_stats(mint_address: str):
+    """Fetches detailed holder statistics from Moralis using key rotation."""
+    url = f"https://solana-gateway.moralis.io/token/mainnet/holders/{mint_address}"
+    api_key = await get_next_moralis_key()
+    headers = {"Accept": "application/json", "X-API-Key": api_key}
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+            return {"source": "moralis_holder_stats", "data": response.json()}
+        except Exception as e:
+            print(f"🚨 Error fetching from Moralis (Holders) with key ending in ...{api_key[-4:]}: {e}")
+            return {"source": "moralis_holder_stats", "error": str(e)}
+
+# --- STRATEGY & DATA COLLECTION FUNCTIONS ---
+@sync_to_async
+def save_data_point(token: Token, api_data: dict):
+    """Saves a new data point for a given token."""
+    TokenDataPoint.objects.create(token=token, data=api_data)
+    print(f"💾 Saved data point for {token.symbol}: {api_data.get('source')}")
+    
+async def collect_data_for_watchlist_coin(token: Token):
+    """Runs the 5-minute data collection process for a given token."""
+    mint = token.mint_address
+    print(f"📊 Starting 5-minute data collection for {token.symbol} ({mint})")
+    
+    await asyncio.sleep(30)
+    print(f"  -> [{token.symbol}] Running T+30s check...")
+    await save_data_point(token, await get_helius_top_holders_count(mint))
+    await save_data_point(token, await get_moralis_metadata(mint))
+    
+    for i in range(9):
+        await asyncio.sleep(30)
+        check_time = (i + 2) * 30
+        print(f"  -> [{token.symbol}] Running T+{check_time}s check...")
+        await save_data_point(token, await get_moralis_holder_stats(mint))
+
+    print(f"✅ Finished 5-minute data collection for {token.symbol}")
+
+async def run_trade_cycle(public_key, private_key, mint_address, rpc_url):
+    """A dedicated async function just for the buy/sell logic."""
+    buy_sig = await asyncio.to_thread(trade.buy, public_key, private_key, mint_address, rpc_url)
+    print(f"\n--- Waiting 1.5 seconds before selling ---\n")
+    await asyncio.sleep(1.5)
+    sell_sig = await asyncio.to_thread(trade.sell, public_key, private_key, mint_address, rpc_url)
+    return buy_sig, sell_sig
+
+async def execute_trade_strategy(token_websocket_data, public_key, private_key, rpc_url):
+    """Handles the entire lifecycle for a watchlist token with maximum speed."""
+    mint_address = token_websocket_data.get('mint')
+    if not mint_address:
+        print("🚨 Cannot execute trade, mint address is missing.")
+        return
+
+    trade_task = asyncio.create_task(run_trade_cycle(public_key, private_key, mint_address, rpc_url))
+
+    print(f"📈 Watchlist hit for {token_websocket_data.get('symbol')}. Firing trade task immediately...")
+
+    token_db_data = {
+        # 'timestamp': timezone.now(),
+        'timestamp': timezone.now() + timedelta(hours=5, minutes=30),
+        'name': token_websocket_data.get('name', 'N/A'),
+        'symbol': token_websocket_data.get('symbol', 'N/A'),
+        'mint_address': mint_address,
+        'sol_amount': token_websocket_data.get('solAmount', 0),
+        'creator_address': token_websocket_data.get('traderPublicKey', 'N/A'),
+        'pump_fun_link': f"https://pump.fun/{mint_address}",
+        'is_from_watchlist': True
+    }
+    db_save_task = asyncio.create_task(save_token_to_db(token_db_data))
+
+    trade_signatures = await trade_task
+    token_object = await db_save_task
+    buy_signature, sell_signature = trade_signatures
+
+    if token_object:
+        print(f"✅ Trade and DB save complete for {token_object.symbol}. Starting post-trade actions.")
+        await asyncio.gather(
+            send_trade_notification_email(token_object, buy_signature, sell_signature),
+            collect_data_for_watchlist_coin(token_object)
+        )
+    else:
+        print(f"🚨 Could not run post-trade actions for {mint_address}, token object not available.")
+
+# --- MAIN LISTENER LOOP ---
+async def pump_fun_listener():
+    print("🎧 Starting Pump.fun WebSocket listener...")
+    async for websocket in websockets.connect(PUMPORTAL_WSS):
+        try:
+            await websocket.send(json.dumps({"method": "subscribeNewToken"}))
+            print("✅ WebSocket Connected and Subscribed.")
+            while True:
+                message = await websocket.recv()
+                data = json.loads(message)
+                if data and data.get('txType') == 'create':
+                    creator_address = data.get('traderPublicKey', 'N/A')
+                    
+                    if creator_address in WATCHLIST_CREATORS:
+                        # If it's a watchlist token, start the entire non-blocking strategy.
+                        asyncio.create_task(
+                            execute_trade_strategy(data, PUBLIC_KEY, PRIVATE_KEY, RPC_URL)
+                        )
+                    else:
+                        # If it's NOT a watchlist token, just save it to the database.
+                        token_data = {
+                            # 'timestamp': timezone.now(),
+                            'timestamp': timezone.now() + timedelta(hours=5, minutes=30),
+                            'name': data.get('name', 'N/A'),
+                            'symbol': data.get('symbol', 'N/A'),
+                            'mint_address': data.get('mint', 'N/A'),
+                            'sol_amount': data.get('solAmount', 0),
+                            'creator_address': creator_address,
+                            'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
+                            'is_from_watchlist': False
+                        }
+                        await save_token_to_db(token_data)
+        except websockets.ConnectionClosed:
+            print("⚠️ WebSocket connection closed. Reconnecting in 10 seconds...")
+            await asyncio.sleep(10)
+        except Exception as e:
+            print(f"💥 Main listener error: {e}. Reconnecting in 10 seconds...")
+            await asyncio.sleep(10)
+
+def run_listener_in_new_loop():
+    """Wrapper to run the async listener in a new asyncio event loop."""
     asyncio.run(pump_fun_listener())

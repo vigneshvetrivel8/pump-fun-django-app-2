@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Watchlist Trade Alert</title>
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; }
+        .container { padding: 20px; border: 1px solid #ddd; border-radius: 5px; max-width: 600px; margin: auto; }
+        a { color: #007bff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>📈 Watchlist Trade Executed: {{ token.symbol }}</h2>
+        <p>A buy-and-sell cycle was attempted for a token on your watchlist.</p>
+        <ul>
+            <li><strong>Name:</strong> {{ token.name }}</li>
+            <li><strong>Symbol:</strong> {{ token.symbol }}</li>
+            <li>
+                <strong>Mint:</strong> 
+                <a href="https://solscan.io/token/{{ token.mint_address }}">{{ token.mint_address }}</a>
+            </li>
+            <li>
+                <strong>Pump.fun:</strong> 
+                <a href="{{ token.pump_fun_link }}">{{ token.pump_fun_link }}</a>
+            </li>
+        </ul>
+        <hr>
+        <h3>Trade Details:</h3>
+        <p>
+            <strong>Buy Transaction:</strong>
+            {% if buy_sig %}
+                <a href="https://solscan.io/tx/{{ buy_sig }}">{{ buy_sig }}</a>
+            {% else %}
+                Buy Failed or Signature Not Available.
+            {% endif %}
+        </p>
+        <p>
+            <strong>Sell Transaction:</strong>
+            {% if sell_sig %}
+                <a href="https://solscan.io/tx/{{ sell_sig }}">{{ sell_sig }}</a>
+            {% else %}
+                Sell Failed or Signature Not Available.
+            {% endif %}
+        </p>
+    </div>
+</body>
+</html>
