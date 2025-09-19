@@ -571,7 +571,8 @@ import random
 
 from dotenv import load_dotenv
 import os
-import trade  # Your trade module
+# import trade  # Your trade module
+from . import trade
 import time
 
 # Load environment variables from .env file
