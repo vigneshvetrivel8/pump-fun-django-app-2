@@ -511,7 +511,7 @@ import json
 import time
 import os
 import httpx 	# For making async HTTP requests
-# import base58
+import base58
 from django.utils import timezone
 from asgiref.sync import sync_to_async
 from .models import Token, TokenDataPoint
@@ -524,6 +524,69 @@ from solana.rpc.async_api import AsyncClient
 from dotenv import load_dotenv
 
 from django.utils import timezone
+
+
+#######################################################################################################
+#######################################################################################################
+#######################################################################################################
+
+# Jito and Solana Imports
+# from jito_searcher.client import SearcherClient, get_solana_client
+from solders.keypair import Keypair
+from solders.pubkey import Pubkey
+from solders.transaction import VersionedTransaction
+from solders.system_program import TransferParams, transfer
+from solders.instruction import Instruction
+from solders.message import MessageV0
+from solana.rpc.async_api import AsyncClient
+
+# --- Solana & Jito Imports (Using the jito-py-rpc library) ---
+# from jito_rpc.jito_rpc_client import JitoRpcClient
+from solana.rpc.async_api import AsyncClient
+from solders.keypair import Keypair
+from solders.pubkey import Pubkey
+from solders.transaction import VersionedTransaction
+
+import random
+# import bs58
+
+# *****************************************************************************************************
+
+# Trading Configuration
+# WALLET_PRIVATE_KEY = os.environ.get('WALLET_PRIVATE_KEY')
+# JITO_BLOCK_ENGINE_URL = os.environ.get('JITO_BLOCK_ENGINE_URL')
+# JITO_RPC_URL = os.environ.get('JITO_RPC_URL')
+
+# Initialize Solana and Jito clients
+# solana_client = None
+# searcher_client = None
+# jito_keypair = None
+# if JITO_RPC_URL and JITO_BLOCK_ENGINE_URL and WALLET_PRIVATE_KEY:
+#     jito_keypair = Keypair.from_secret_key(base58.b58decode(WALLET_PRIVATE_KEY))
+#     solana_client = get_solana_client(JITO_RPC_URL)
+#     searcher_client = SearcherClient(JITO_BLOCK_ENGINE_URL, jito_keypair)
+#     print("✅ Jito and Solana clients initialized for trading.")
+# else:
+#     print("⚠️ Trading clients not initialized. Check environment variables.")
+
+from dotenv import load_dotenv
+import os
+import trade  # Your trade module
+import time
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Define all your configuration variables here
+PUBLIC_KEY = os.getenv("WALLET_PUBLIC_KEY")
+PRIVATE_KEY = os.getenv("WALLET_PRIVATE_KEY")
+# MINT_ADDRESS = "GutMnkY4y6kzWJu1P3PfCnxyEkt9veeaLj63DGM5Rh6g"
+# RPC_URL = "https://mainnet.helius-rpc.com/?api-key=5d0a2bb2-0bd2-4f5a-b581-d1785d59e26b"
+RPC_URL = os.getenv("HELIUS_RPC_URL")
+
+#######################################################################################################
+#######################################################################################################
+#######################################################################################################
 
 load_dotenv()
 
@@ -722,6 +785,89 @@ async def collect_data_for_watchlist_coin(token: Token):
 
     print(f"✅ Finished 5-minute data collection for {token.symbol}")
 
+######################################################################################################################
+######################################################################################################################
+######################################################################################################################
+
+
+# # === REUSABLE TRADING FUNCTIONS ===
+# async def jito_buy_token(token: Token, amount_sol: str, slippage: int) -> bool:
+#     """Handles the complete logic for buying a token via Jito."""
+#     print(f"  -> Preparing BUY for {amount_sol} SOL of {token.symbol}...")
+#     try:
+#         swap_payload = {
+#             "publicKey": str(jito_keypair.pubkey()), "action": "buy", "mint": token.mint_address,
+#             "denominatedInSol": "true", "amount": amount_sol, "slippage": slippage, "priorityFee": 0.001
+#         }
+#         async with httpx.AsyncClient() as client:
+#             swap_response = await client.post("https://pumpportal.fun/api/trade-local", json=swap_payload, timeout=20)
+        
+#         if swap_response.status_code != 200:
+#             print(f"    🚨 BUY FAILED: Could not get swap tx from PumpPortal. {swap_response.text}")
+#             return False
+
+#         swap_tx = VersionedTransaction.from_bytes(swap_response.content)
+#         swap_tx.sign([jito_keypair])
+        
+#         # Use Jito's sendTransaction for fast, single-tx execution
+#         await jito_rpc_client.send_transaction(swap_tx)
+#         print(f"    ✅ BUY transaction sent successfully via Jito for {token.symbol}.")
+#         return True
+#     except Exception as e:
+#         print(f"    🚨 BUY FAILED: A critical error occurred: {e}")
+#         return False
+
+# async def jito_sell_token(token: Token, sell_percentage: str, slippage: int) -> bool:
+#     """Handles the complete logic for selling a token via Jito."""
+#     print(f"  -> Preparing SELL for {sell_percentage} of {token.symbol}...")
+#     try:
+#         sell_payload = {
+#             "publicKey": str(jito_keypair.pubkey()), "action": "sell", "mint": token.mint_address,
+#             "denominatedInSol": "false", "amount": sell_percentage, "slippage": slippage, "priorityFee": 0.001
+#         }
+#         async with httpx.AsyncClient() as client:
+#             sell_response = await client.post("https://pumpportal.fun/api/trade-local", json=sell_payload, timeout=20)
+
+#         if sell_response.status_code != 200:
+#             print(f"    🚨 SELL FAILED: Could not get sell tx from PumpPortal. {sell_response.text}")
+#             return False
+            
+#         sell_tx = VersionedTransaction.from_bytes(sell_response.content)
+#         sell_tx.sign([jito_keypair])
+        
+#         await jito_rpc_client.send_transaction(sell_tx)
+#         print(f"    ✅ SELL transaction sent successfully via Jito for {token.symbol}.")
+#         return True
+#     except Exception as e:
+#         print(f"    🚨 SELL FAILED: A critical error occurred: {e}")
+#         return False
+
+# # === ORCHESTRATOR / STRATEGY FUNCTION ===
+# async def execute_jito_flip_strategy(token: Token):
+#     """Orchestrates the buy, wait, and sell sequence using the reusable functions."""
+#     print(f"📈 Executing 1.5s Jito FLIP strategy for {token.symbol}...")
+    
+#     # --- Strategy Configuration ---
+#     BUY_AMOUNT_SOL = "0.01"
+#     MAX_BUY_SLIPPAGE = 40
+#     SELL_SLIPPAGE = 25
+#     FLIP_DELAY_SECONDS = 1.5
+
+#     # --- Execute the Strategy ---
+#     buy_successful = await jito_buy_token(token, amount_sol=BUY_AMOUNT_SOL, slippage=MAX_BUY_SLIPPAGE)
+    
+#     if buy_successful:
+#         print(f"  -> Waiting {FLIP_DELAY_SECONDS} seconds...")
+#         await asyncio.sleep(FLIP_DELAY_SECONDS)
+#         await jito_sell_token(token, sell_percentage="100%", slippage=SELL_SLIPPAGE)
+#     else:
+#         print(f"  -> Aborting flip strategy for {token.symbol} due to buy failure.")
+
+#     print(f"✅ Strategy finished for {token.symbol}.")
+
+######################################################################################################################
+######################################################################################################################
+######################################################################################################################
 
 # --- Main listener function (from previous steps) ---
 async def pump_fun_listener():
@@ -789,6 +935,33 @@ async def pump_fun_listener():
                     token_object = await save_token_to_db(token_data)
 
                     if token_object and token_object.is_from_watchlist:
+                        #########################################################################################
+                        # --- CALL THE NEW FLIP STRATEGY ---
+                        # asyncio.create_task(execute_jito_flip_strategy(token_object))
+                        if data.get('mint'):
+                            MINT_ADDRESS = data.get('mint')
+                            # Ensure all variables are loaded correctly
+                            if not all([PUBLIC_KEY, PRIVATE_KEY, MINT_ADDRESS, RPC_URL]):
+                                print("❌ Error: One or more environment variables are not set. Check your .env file.")
+                            else:
+                                # Pass the variables as arguments to the functions
+                                trade.buy(
+                                    public_key=PUBLIC_KEY, 
+                                    private_key=PRIVATE_KEY, 
+                                    mint_address=MINT_ADDRESS, 
+                                    rpc_url=RPC_URL
+                                )
+
+                                print("\n--- Waiting for 1.5 seconds before selling ---\n")
+                                time.sleep(1.5)
+
+                                trade.sell(
+                                    public_key=PUBLIC_KEY, 
+                                    private_key=PRIVATE_KEY, 
+                                    mint_address=MINT_ADDRESS, 
+                                    rpc_url=RPC_URL
+                                )
+                        #########################################################################################
                         asyncio.create_task(collect_data_for_watchlist_coin(token_object))
         except websockets.ConnectionClosed:
             print("⚠️ WebSocket connection closed. Reconnecting in 10 seconds...")

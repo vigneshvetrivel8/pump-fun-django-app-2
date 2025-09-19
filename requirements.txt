@@ -9,3 +9,4 @@ httpx
 solana
 solders
 python-dotenv
+jito-py-rpc
