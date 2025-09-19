@@ -1449,7 +1449,8 @@ async def execute_trade_strategy(token_websocket_data, public_key, private_key, 
         'name': token_websocket_data.get('name', 'N/A'),
         'symbol': token_websocket_data.get('symbol', 'N/A'),
         'mint_address': mint_address,
-        'sol_amount': token_websocket_data.get('solAmount', 0),
+        # 'sol_amount': token_websocket_data.get('solAmount', 0),
+        'sol_amount': token_websocket_data.get('solAmount') or 0, # <-- APPLY FIX HERE
         'creator_address': token_websocket_data.get('traderPublicKey', 'N/A'),
         'pump_fun_link': f"https://pump.fun/{mint_address}",
         'is_from_watchlist': True
@@ -1495,7 +1496,8 @@ async def pump_fun_listener():
                             'name': data.get('name', 'N/A'),
                             'symbol': data.get('symbol', 'N/A'),
                             'mint_address': data.get('mint', 'N/A'),
-                            'sol_amount': data.get('solAmount', 0),
+                            # 'sol_amount': data.get('solAmount', 0),
+                            'sol_amount': data.get('solAmount') or 0, # <-- APPLY FIX HERE
                             'creator_address': creator_address,
                             'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
                             'is_from_watchlist': False
