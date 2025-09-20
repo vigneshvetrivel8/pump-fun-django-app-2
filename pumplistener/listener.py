@@ -1484,10 +1484,31 @@ async def pump_fun_listener():
                     creator_address = data.get('traderPublicKey', 'N/A')
                     
                     if creator_address in WATCHLIST_CREATORS:
+                        ############################################################################################
                         # If it's a watchlist token, start the entire non-blocking strategy.
                         asyncio.create_task(
                             execute_trade_strategy(data, PUBLIC_KEY, PRIVATE_KEY, RPC_URL)
                         )
+                        ############################################################################################
+                        # TO Disable trading, we may comment out the above section, and execute only data saving below.
+                            # --- Add this logic to save the token and start data collection ---
+                        # token_data = {
+                        #     'timestamp': timezone.now() + timedelta(hours=5, minutes=30),
+                        #     'name': data.get('name', 'N/A'),
+                        #     'symbol': data.get('symbol', 'N/A'),
+                        #     'mint_address': data.get('mint', 'N/A'),
+                        #     'sol_amount': data.get('solAmount') or 0,
+                        #     'creator_address': creator_address,
+                        #     'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
+                        #     'is_from_watchlist': True # Still mark it as a watchlist token
+                        # }
+                        
+                        # token_object = await save_token_to_db(token_data)
+                        
+                        # if token_object:
+                        #     # Start the 5-minute data collection without trading
+                        #     asyncio.create_task(collect_data_for_watchlist_coin(token_object))
+                        ############################################################################################
                     else:
                         # If it's NOT a watchlist token, just save it to the database.
                         token_data = {
