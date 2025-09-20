@@ -1306,7 +1306,7 @@ HELIUS_API_KEY = os.environ.get('HELIUS_API_KEY')
 HELIUS_RPC_URL = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
 PUBLIC_KEY = os.getenv("WALLET_PUBLIC_KEY")
 PRIVATE_KEY = os.getenv("WALLET_PRIVATE_KEY")
-RPC_URL = os.getenv("HELIUS_RPC_URL")
+RPC_URL = os.getenv("RPC_URL")
 watchlist_str = os.environ.get('CREATOR_WATCHLIST', '')
 # WATCHLIST_CREATORS = set(filter(None, watchlist_str.split(',')))
 WATCHLIST_CREATORS = set(watchlist_str.split(','))
