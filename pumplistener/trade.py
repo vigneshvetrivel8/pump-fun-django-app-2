@@ -21,12 +21,12 @@ def buy(public_key, private_key, mint_address, rpc_url):
             "publicKey": public_key,
             "action": "buy",
             "mint": mint_address,
-            "amount": 0.006,
+            "amount": 0.01,
             "denominatedInSol": "true",
             "slippage": 15,
             # "priorityFee": 0.0001,
             # "priorityFee": 0.00025,
-            "priorityFee": 0.00001,
+            "priorityFee": 0.001,
             "pool": "auto"
         })
         response.raise_for_status() # Raise an exception for bad status codes
@@ -80,7 +80,7 @@ def sell(public_key, private_key, mint_address, rpc_url):
         "amount": "100%",
         "denominatedInSol": "false",
         "slippage": 99,
-        "priorityFee": 0.00001,
+        "priorityFee": 0.0001,
         # "priorityFee": 0.00025,
         "pool": "auto"
     })
