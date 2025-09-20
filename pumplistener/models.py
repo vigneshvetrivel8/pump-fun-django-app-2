@@ -1,8 +1,5 @@
 from django.db import models
 
-# Create your models here.
-# pumplistener/models.py
-
 class Token(models.Model):
     timestamp = models.DateTimeField()
     name = models.CharField(max_length=100)
@@ -10,22 +7,27 @@ class Token(models.Model):
     mint_address = models.CharField(max_length=100, unique=True)
     sol_amount = models.FloatField()
     creator_address = models.CharField(max_length=100)
-
-    # ADD THIS LINE
     pump_fun_link = models.CharField(max_length=200, default='')
-
-    # ADD THIS NEW FIELD
     is_from_watchlist = models.BooleanField(default=False)
+
+    # --- NEW FIELDS TO TRACK TRADE STATE ---
+    is_sold = models.BooleanField(default=False)
+    buy_timestamp = models.DateTimeField(null=True, blank=True)
+    sell_timestamp = models.DateTimeField(null=True, blank=True)
+    
+    initial_market_cap = models.FloatField(null=True, blank=True)
+    current_market_cap = models.FloatField(null=True, blank=True)
+    highest_market_cap = models.FloatField(null=True, blank=True)
+    current_holder_count = models.IntegerField(null=True, blank=True)
+    sell_market_cap = models.FloatField(null=True, blank=True)
+    # --- END OF NEW FIELDS ---
 
     def __str__(self):
         return f"{self.name} ({self.symbol})"
     
-    
-# --- ADD THIS NEW MODEL ---
 class TokenDataPoint(models.Model):
     token = models.ForeignKey(Token, related_name='data_points', on_delete=models.CASCADE)
     timestamp = models.DateTimeField(auto_now_add=True)
-    # We'll store the collected API data as a JSON object
     data = models.JSONField()
 
     def __str__(self):

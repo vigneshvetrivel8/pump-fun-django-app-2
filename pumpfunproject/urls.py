@@ -26,7 +26,15 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path
-from pumplistener.views import view_log_file, trigger_token_cleanup, preview_email_report
+# Import the new views
+from pumplistener.views import (
+    view_log_file, 
+    trigger_token_cleanup, 
+    preview_email_report,
+    trigger_monitor_trades,
+    trigger_active_trade_report
+)
+
 urlpatterns = [
     path('admin/', admin.site.urls),
 
@@ -37,4 +45,7 @@ urlpatterns = [
     #######################################
     path('preview-email/', preview_email_report, name='preview_email'),
     #######################################
+    # --- ADD THESE TWO NEW URLS ---
+    path('trigger-sell-check-z9b4x2k/', trigger_monitor_trades, name='trigger_monitor_trades'),
+    path('trigger-status-report-m5c8v1j/', trigger_active_trade_report, name='trigger_active_trade_report'),
 ]

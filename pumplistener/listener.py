@@ -1276,6 +1276,23 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ###########################################################################################################################
 
 # pumplistener/listener.py
@@ -1469,6 +1486,71 @@ async def execute_trade_strategy(token_websocket_data, public_key, private_key, 
         )
     else:
         print(f"🚨 Could not run post-trade actions for {mint_address}, token object not available.")
+
+###################################################################################################################
+# In listener.py
+
+async def collect_data_for_watchlist_coin(token: Token):
+    """
+    MODIFIED: Now acts as the High-Frequency monitor and sell-checker for the first 5 minutes.
+    """
+    mint = token.mint_address
+    print(f"📊 Starting HIGH-FREQUENCY monitoring for {token.symbol} ({mint})")
+    
+    # Run a check every 30 seconds for 5 minutes (10 checks total)
+    for i in range(10):
+        await asyncio.sleep(30)
+        check_time = (i + 1) * 30
+        print(f"  -> [{token.symbol}] Running T+{check_time}s check...")
+        
+        # Fetch latest market data
+        metadata = await get_moralis_metadata(mint)
+        holders = await get_moralis_holder_stats(mint)
+        
+        # Save the raw data points
+        await save_data_point(token, metadata)
+        await save_data_point(token, holders)
+
+        # --- NEW LOGIC: Parse and update the Token's state in the DB ---
+        try:
+            current_mc_str = metadata.get('data', {}).get('fullyDilutedValue')
+            current_holders_str = holders.get('data', {}).get('total')
+
+            if current_mc_str and current_holders_str:
+                current_mc = float(current_mc_str)
+                current_holders = int(current_holders_str)
+
+                # Use sync_to_async to safely update the database record
+                @sync_to_async
+                def update_token_state():
+                    # Refresh the token object from the DB to avoid race conditions
+                    t = Token.objects.get(pk=token.pk)
+                    t.current_market_cap = current_mc
+                    t.current_holder_count = current_holders
+                    
+                    if not t.initial_market_cap:
+                        t.initial_market_cap = current_mc
+                    
+                    if not t.highest_market_cap or current_mc > t.highest_market_cap:
+                        t.highest_market_cap = current_mc
+                    
+                    t.save()
+                    return t
+                
+                token = await update_token_state()
+
+                # --- SIMULATION: Check sell rules ---
+                if token.initial_market_cap and token.current_market_cap > token.initial_market_cap * 2:
+                    print(f"  -> 🚨 SIMULATION: Would sell {token.symbol} for 2x profit!")
+                    # In the future, a real `trade.sell()` call would go here.
+                    # After a successful sell, we would break the loop.
+        
+        except (ValueError, TypeError, KeyError) as e:
+            print(f"  -> Could not parse API data for {token.symbol}: {e}")
+
+    print(f"✅ Finished high-frequency monitoring for {token.symbol}")
+
+#####################################################################################################################
 
 # --- MAIN LISTENER LOOP ---
 async def pump_fun_listener():

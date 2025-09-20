@@ -14,6 +14,10 @@ from .models import Token           # Add this import at the top
 from datetime import datetime, timedelta # Add this import at the top
 #####################################################################################
 
+# Add asyncio and call_command to imports
+import asyncio
+from django.core.management import call_command
+
 # This is the name of the log file you defined in listener.py
 LOG_FILE = 'token_log.txt'
 
@@ -78,3 +82,26 @@ def preview_email_report(request):
     return render(request, 'pumplistener/email_report.html', context)
 
 #####################################################################################
+
+async def trigger_monitor_trades(request):
+    """Triggers the monitor_trades command asynchronously."""
+    provided_secret = request.GET.get('secret')
+    expected_secret = os.environ.get('CLEANUP_SECRET_KEY') # Reuse the same secret for simplicity
+
+    if not expected_secret or provided_secret != expected_secret:
+        return HttpResponse('Unauthorized', status=401)
+    
+    # Run the synchronous command in a separate thread
+    await asyncio.to_thread(call_command, 'monitor_trades')
+    return JsonResponse({'status': 'success', 'message': 'Trade monitor command triggered.'})
+
+async def trigger_active_trade_report(request):
+    """Triggers the send_active_trade_report command asynchronously."""
+    provided_secret = request.GET.get('secret')
+    expected_secret = os.environ.get('CLEANUP_SECRET_KEY')
+
+    if not expected_secret or provided_secret != expected_secret:
+        return HttpResponse('Unauthorized', status=401)
+
+    await asyncio.to_thread(call_command, 'send_active_trade_report')
+    return JsonResponse({'status': 'success', 'message': 'Active trade report command triggered.'})
