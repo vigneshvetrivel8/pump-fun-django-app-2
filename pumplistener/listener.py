@@ -1504,11 +1504,11 @@ async def pump_fun_listener():
                         }
                         await save_token_to_db(token_data)
         except websockets.ConnectionClosed:
-            print("⚠️ WebSocket connection closed. Reconnecting in 10 seconds...")
-            await asyncio.sleep(10)
+            print("⚠️ WebSocket connection closed. Reconnecting in 5 seconds...")
+            await asyncio.sleep(5)
         except Exception as e:
-            print(f"💥 Main listener error: {e}. Reconnecting in 10 seconds...")
-            await asyncio.sleep(10)
+            print(f"💥 Main listener error: {e}. Reconnecting in 5 seconds...")
+            await asyncio.sleep(5)
 
 def run_listener_in_new_loop():
     """Wrapper to run the async listener in a new asyncio event loop."""
