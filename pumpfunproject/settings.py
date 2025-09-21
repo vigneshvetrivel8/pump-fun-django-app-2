@@ -135,10 +135,16 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 # EMAIL CONFIGURATION FOR GMAIL
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'cryptoalert403@gmail.com'
-EMAIL_HOST_PASSWORD = 'prpmkjfsurjnsyel'
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = 'smtp.gmail.com'
+# EMAIL_PORT = 587
+# EMAIL_USE_TLS = True
+# EMAIL_HOST_USER = 'cryptoalert403@gmail.com'
+# EMAIL_HOST_PASSWORD = 'prpmkjfsurjnsyel'
 DEFAULT_FROM_EMAIL = 'cryptoalert403@gmail.com'
+
+EMAIL_BACKEND = 'anymail.backends.mailjet.EmailBackend'
+ANYMAIL = {
+    "MAILJET_API_KEY": os.environ.get('MAILJET_API_KEY'),
+    "MAILJET_SECRET_KEY": os.environ.get('MAILJET_SECRET_KEY'),
+}

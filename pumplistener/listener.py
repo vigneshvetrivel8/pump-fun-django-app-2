@@ -1587,6 +1587,36 @@ async def refresh_token_state(token: Token):
     except (ValueError, TypeError, KeyError) as e:
         print(f"  -> Could not parse API data during refresh for {token.symbol}: {e}")
 
+# ********************************************************************************************************************
+# Replace the old version of this function with this simpler one
+@sync_to_async
+def send_trade_notification_email(token, buy_sig, sell_sig):
+    """
+    Renders and sends a trade notification email using the default Mailjet backend.
+    """
+    recipient_email = os.environ.get('REPORT_RECIPIENT_EMAIL')
+    if not recipient_email:
+        print("⚠️ Cannot send trade notification, REPORT_RECIPIENT_EMAIL not set.")
+        return
+
+    print(f"📧 Preparing trade notification email for {token.symbol}...")
+    try:
+        subject = f"Watchlist Trade Alert: ${token.symbol}"
+        html_message = render_to_string('pumplistener/trade_notification_email.html', {
+            'token': token, 'buy_sig': buy_sig, 'sell_sig': sell_sig,
+        })
+        
+        send_mail(
+            subject=subject,
+            message="This email requires an HTML-compatible client.", # Plain text fallback
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[recipient_email],
+            html_message=html_message
+        )
+        print(f"✅ Trade notification for ${token.symbol} sent to {recipient_email}")
+    except Exception as e:
+        print(f"🚨 Failed to send trade notification email: {e}")
+
 #####################################################################################################################
 
 # --- MAIN LISTENER LOOP ---
