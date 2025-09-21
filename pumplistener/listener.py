@@ -1423,23 +1423,93 @@ def save_data_point(token: Token, api_data: dict):
     TokenDataPoint.objects.create(token=token, data=api_data)
     print(f"💾 Saved data point for {token.symbol}: {api_data.get('source')}")
     
-async def collect_data_for_watchlist_coin(token: Token):
-    """Runs the 5-minute data collection process for a given token."""
-    mint = token.mint_address
-    print(f"📊 Starting 5-minute data collection for {token.symbol} ({mint})")
+# async def collect_data_for_watchlist_coin(token: Token):
+#     """Runs the 5-minute data collection process for a given token."""
+#     mint = token.mint_address
+#     print(f"📊 Starting 5-minute data collection for {token.symbol} ({mint})")
     
-    await asyncio.sleep(30)
-    print(f"  -> [{token.symbol}] Running T+30s check...")
-    await save_data_point(token, await get_helius_top_holders_count(mint))
-    await save_data_point(token, await get_moralis_metadata(mint))
+#     await asyncio.sleep(30)
+#     print(f"  -> [{token.symbol}] Running T+30s check...")
+#     await save_data_point(token, await get_helius_top_holders_count(mint))
+#     await save_data_point(token, await get_moralis_metadata(mint))
     
-    for i in range(9):
-        await asyncio.sleep(30)
-        check_time = (i + 2) * 30
-        print(f"  -> [{token.symbol}] Running T+{check_time}s check...")
-        await save_data_point(token, await get_moralis_holder_stats(mint))
+#     for i in range(9):
+#         await asyncio.sleep(30)
+#         check_time = (i + 2) * 30
+#         print(f"  -> [{token.symbol}] Running T+{check_time}s check...")
+#         await save_data_point(token, await get_moralis_holder_stats(mint))
 
-    print(f"✅ Finished 5-minute data collection for {token.symbol}")
+#     print(f"✅ Finished 5-minute data collection for {token.symbol}")
+
+
+#######################################################################################################################
+#######################################################################################################################
+#######################################################################################################################
+
+# --- STRATEGY & DATA COLLECTION FUNCTIONS ---
+
+async def refresh_token_state(token: Token):
+    """Performs a single data refresh for a token and updates its state in the DB."""
+    try:
+        metadata, holders = await asyncio.gather(
+            get_moralis_metadata(token.mint_address),
+            get_moralis_holder_stats(token.mint_address)
+        )
+        await save_data_point(token, metadata)
+        await save_data_point(token, holders)
+
+        current_mc_str = metadata.get('data', {}).get('fullyDilutedValue')
+        current_holders_str = holders.get('data', {}).get('total')
+
+        if current_mc_str and current_holders_str:
+            current_mc = float(current_mc_str)
+            current_holders = int(current_holders_str)
+
+            @sync_to_async
+            def update_db():
+                # Use .select_for_update() to lock the row and prevent race conditions
+                t = Token.objects.select_for_update().get(pk=token.pk)
+                t.current_market_cap = current_mc
+                t.current_holder_count = current_holders
+                if not t.initial_market_cap:
+                    t.initial_market_cap = current_mc
+                if not t.highest_market_cap or current_mc > t.highest_market_cap:
+                    t.highest_market_cap = current_mc
+                t.save()
+            
+            await update_db()
+            print(f"  -> Refreshed data for {token.symbol}: MC=${current_mc}, Holders={current_holders}")
+    except Exception as e:
+        print(f"  -> Could not parse API data during refresh for {token.symbol}: {e}")
+
+async def collect_data_for_watchlist_coin(token: Token):
+    """
+    MODIFIED: Acts as the High-Frequency monitor for the first 10 minutes.
+    """
+    print(f"📊 Starting 10-MINUTE HIGH-FREQUENCY monitoring for {token.symbol} ({token.mint_address})")
+
+    # Run a check every 15 seconds for 10 minutes (40 checks total)
+    for i in range(40):
+        await asyncio.sleep(15)
+        check_time = (i + 1) * 15
+        print(f"  -> [{token.symbol}] Running T+{check_time}s check...")
+        
+        await refresh_token_state(token)
+        
+        # To check rules, we need the most up-to-date version from the DB
+        refreshed_token = await Token.objects.aget(pk=token.pk)
+
+        # --- SIMULATION: Check sell rules ---
+        if refreshed_token.initial_market_cap and refreshed_token.current_market_cap:
+            if refreshed_token.current_market_cap >= refreshed_token.initial_market_cap * 2:
+                print(f"  -> 🚨 SIMULATION: Would sell {refreshed_token.symbol} for 2x profit!")
+                # In the future, a real `trade.sell()` call and a `break` would go here.
+
+    print(f"✅ Finished 10-minute high-frequency monitoring for {token.symbol}")
+###################################################################################################################
+###################################################################################################################
+###################################################################################################################
+# --- NEW: Orchestrator to run the full trade cycle without blocking the listener ---
 
 async def run_trade_cycle(public_key, private_key, mint_address, rpc_url):
     """A dedicated async function just for the buy/sell logic."""
@@ -1490,103 +1560,69 @@ async def execute_trade_strategy(token_websocket_data, public_key, private_key, 
 ###################################################################################################################
 # In listener.py
 
-async def collect_data_for_watchlist_coin(token: Token):
-    """
-    MODIFIED: Now acts as the High-Frequency monitor and sell-checker for the first 5 minutes.
-    """
-    mint = token.mint_address
-    print(f"📊 Starting HIGH-FREQUENCY monitoring for {token.symbol} ({mint})")
+# async def collect_data_for_watchlist_coin(token: Token):
+#     """
+#     MODIFIED: Now acts as the High-Frequency monitor and sell-checker for the first 5 minutes.
+#     """
+#     mint = token.mint_address
+#     print(f"📊 Starting HIGH-FREQUENCY monitoring for {token.symbol} ({mint})")
     
-    # Run a check every 30 seconds for 5 minutes (10 checks total)
-    for i in range(10):
-        await asyncio.sleep(30)
-        check_time = (i + 1) * 30
-        print(f"  -> [{token.symbol}] Running T+{check_time}s check...")
+#     # Run a check every 30 seconds for 5 minutes (10 checks total)
+#     for i in range(10):
+#         await asyncio.sleep(30)
+#         check_time = (i + 1) * 30
+#         print(f"  -> [{token.symbol}] Running T+{check_time}s check...")
         
-        # Fetch latest market data
-        metadata = await get_moralis_metadata(mint)
-        holders = await get_moralis_holder_stats(mint)
+#         # Fetch latest market data
+#         metadata = await get_moralis_metadata(mint)
+#         holders = await get_moralis_holder_stats(mint)
         
-        # Save the raw data points
-        await save_data_point(token, metadata)
-        await save_data_point(token, holders)
+#         # Save the raw data points
+#         await save_data_point(token, metadata)
+#         await save_data_point(token, holders)
 
-        # --- NEW LOGIC: Parse and update the Token's state in the DB ---
-        try:
-            current_mc_str = metadata.get('data', {}).get('fullyDilutedValue')
-            current_holders_str = holders.get('data', {}).get('total')
+#         # --- NEW LOGIC: Parse and update the Token's state in the DB ---
+#         try:
+#             current_mc_str = metadata.get('data', {}).get('fullyDilutedValue')
+#             current_holders_str = holders.get('data', {}).get('total')
 
-            if current_mc_str and current_holders_str:
-                current_mc = float(current_mc_str)
-                current_holders = int(current_holders_str)
+#             if current_mc_str and current_holders_str:
+#                 current_mc = float(current_mc_str)
+#                 current_holders = int(current_holders_str)
 
-                # Use sync_to_async to safely update the database record
-                @sync_to_async
-                def update_token_state():
-                    # Refresh the token object from the DB to avoid race conditions
-                    t = Token.objects.get(pk=token.pk)
-                    t.current_market_cap = current_mc
-                    t.current_holder_count = current_holders
+#                 # Use sync_to_async to safely update the database record
+#                 @sync_to_async
+#                 def update_token_state():
+#                     # Refresh the token object from the DB to avoid race conditions
+#                     t = Token.objects.get(pk=token.pk)
+#                     t.current_market_cap = current_mc
+#                     t.current_holder_count = current_holders
                     
-                    if not t.initial_market_cap:
-                        t.initial_market_cap = current_mc
+#                     if not t.initial_market_cap:
+#                         t.initial_market_cap = current_mc
                     
-                    if not t.highest_market_cap or current_mc > t.highest_market_cap:
-                        t.highest_market_cap = current_mc
+#                     if not t.highest_market_cap or current_mc > t.highest_market_cap:
+#                         t.highest_market_cap = current_mc
                     
-                    t.save()
-                    return t
+#                     t.save()
+#                     return t
                 
-                token = await update_token_state()
+#                 token = await update_token_state()
 
-                # --- SIMULATION: Check sell rules ---
-                if token.initial_market_cap and token.current_market_cap > token.initial_market_cap * 2:
-                    print(f"  -> 🚨 SIMULATION: Would sell {token.symbol} for 2x profit!")
-                    # In the future, a real `trade.sell()` call would go here.
-                    # After a successful sell, we would break the loop.
+#                 # --- SIMULATION: Check sell rules ---
+#                 if token.initial_market_cap and token.current_market_cap > token.initial_market_cap * 2:
+#                     print(f"  -> 🚨 SIMULATION: Would sell {token.symbol} for 2x profit!")
+#                     # In the future, a real `trade.sell()` call would go here.
+#                     # After a successful sell, we would break the loop.
         
-        except (ValueError, TypeError, KeyError) as e:
-            print(f"  -> Could not parse API data for {token.symbol}: {e}")
+#         except (ValueError, TypeError, KeyError) as e:
+#             print(f"  -> Could not parse API data for {token.symbol}: {e}")
 
-    print(f"✅ Finished high-frequency monitoring for {token.symbol}")
+#     print(f"✅ Finished high-frequency monitoring for {token.symbol}")
 
 
 
 # *******************************************************************************************************************
-
-# In pumplistener/listener.py
-
-async def refresh_token_state(token: Token):
-    """
-    Performs a single data refresh for a token, fetching API data and updating its state in the DB.
-    """
-    try:
-        metadata = await get_moralis_metadata(token.mint_address)
-        holders = await get_moralis_holder_stats(token.mint_address)
-        await save_data_point(token, metadata)
-        await save_data_point(token, holders)
-
-        current_mc_str = metadata.get('data', {}).get('fullyDilutedValue')
-        current_holders_str = holders.get('data', {}).get('total')
-
-        if current_mc_str and current_holders_str:
-            current_mc = float(current_mc_str)
-            current_holders = int(current_holders_str)
-
-            @sync_to_async
-            def update_db():
-                token.current_market_cap = current_mc
-                token.current_holder_count = current_holders
-                if not token.highest_market_cap or current_mc > token.highest_market_cap:
-                    token.highest_market_cap = current_mc
-                token.save()
-            
-            await update_db()
-            print(f"  -> Refreshed data for {token.symbol}: MC=${current_mc}, Holders={current_holders}")
-
-    except (ValueError, TypeError, KeyError) as e:
-        print(f"  -> Could not parse API data during refresh for {token.symbol}: {e}")
-
 # ********************************************************************************************************************
 # Replace the old version of this function with this simpler one
 @sync_to_async
