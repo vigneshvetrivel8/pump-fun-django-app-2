@@ -1550,6 +1550,43 @@ async def collect_data_for_watchlist_coin(token: Token):
 
     print(f"✅ Finished high-frequency monitoring for {token.symbol}")
 
+
+
+# *******************************************************************************************************************
+
+# In pumplistener/listener.py
+
+async def refresh_token_state(token: Token):
+    """
+    Performs a single data refresh for a token, fetching API data and updating its state in the DB.
+    """
+    try:
+        metadata = await get_moralis_metadata(token.mint_address)
+        holders = await get_moralis_holder_stats(token.mint_address)
+        await save_data_point(token, metadata)
+        await save_data_point(token, holders)
+
+        current_mc_str = metadata.get('data', {}).get('fullyDilutedValue')
+        current_holders_str = holders.get('data', {}).get('total')
+
+        if current_mc_str and current_holders_str:
+            current_mc = float(current_mc_str)
+            current_holders = int(current_holders_str)
+
+            @sync_to_async
+            def update_db():
+                token.current_market_cap = current_mc
+                token.current_holder_count = current_holders
+                if not token.highest_market_cap or current_mc > token.highest_market_cap:
+                    token.highest_market_cap = current_mc
+                token.save()
+            
+            await update_db()
+            print(f"  -> Refreshed data for {token.symbol}: MC=${current_mc}, Holders={current_holders}")
+
+    except (ValueError, TypeError, KeyError) as e:
+        print(f"  -> Could not parse API data during refresh for {token.symbol}: {e}")
+
 #####################################################################################################################
 
 # --- MAIN LISTENER LOOP ---
