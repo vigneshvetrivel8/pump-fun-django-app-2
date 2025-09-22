@@ -1448,8 +1448,48 @@ def save_data_point(token: Token, api_data: dict):
 
 # --- STRATEGY & DATA COLLECTION FUNCTIONS ---
 
+# async def refresh_token_state(token: Token):
+#     """Performs a single data refresh for a token and updates its state in the DB."""
+#     try:
+#         metadata, holders = await asyncio.gather(
+#             get_moralis_metadata(token.mint_address),
+#             get_moralis_holder_stats(token.mint_address)
+#         )
+#         await save_data_point(token, metadata)
+#         await save_data_point(token, holders)
+
+#         current_mc_str = metadata.get('data', {}).get('fullyDilutedValue')
+#         current_holders_str = holders.get('data', {}).get('total')
+
+#         if current_mc_str and current_holders_str:
+#             current_mc = float(current_mc_str)
+#             current_holders = int(current_holders_str)
+
+#             @sync_to_async
+#             def update_db():
+#                 # Use .select_for_update() to lock the row and prevent race conditions
+#                 t = Token.objects.select_for_update().get(pk=token.pk)
+#                 t.current_market_cap = current_mc
+#                 t.current_holder_count = current_holders
+#                 if not t.initial_market_cap:
+#                     t.initial_market_cap = current_mc
+#                 if not t.highest_market_cap or current_mc > t.highest_market_cap:
+#                     t.highest_market_cap = current_mc
+#                 t.save()
+            
+#             await update_db()
+#             print(f"  -> Refreshed data for {token.symbol}: MC=${current_mc}, Holders={current_holders}")
+#     except Exception as e:
+#         print(f"  -> Could not parse API data during refresh for {token.symbol}: {e}")
+
+# 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+
+# In pumplistener/listener.py
+
 async def refresh_token_state(token: Token):
-    """Performs a single data refresh for a token and updates its state in the DB."""
+    """
+    Performs a single data refresh for a token, fetching API data and updating its state in the DB.
+    """
     try:
         metadata, holders = await asyncio.gather(
             get_moralis_metadata(token.mint_address),
@@ -1457,6 +1497,11 @@ async def refresh_token_state(token: Token):
         )
         await save_data_point(token, metadata)
         await save_data_point(token, holders)
+
+        # --- NEW: Check for API errors before parsing ---
+        if 'error' in metadata or 'error' in holders:
+            print(f"  -> Skipping state update for {token.symbol} due to API error.")
+            return
 
         current_mc_str = metadata.get('data', {}).get('fullyDilutedValue')
         current_holders_str = holders.get('data', {}).get('total')
@@ -1467,7 +1512,6 @@ async def refresh_token_state(token: Token):
 
             @sync_to_async
             def update_db():
-                # Use .select_for_update() to lock the row and prevent race conditions
                 t = Token.objects.select_for_update().get(pk=token.pk)
                 t.current_market_cap = current_mc
                 t.current_holder_count = current_holders
@@ -1481,6 +1525,9 @@ async def refresh_token_state(token: Token):
             print(f"  -> Refreshed data for {token.symbol}: MC=${current_mc}, Holders={current_holders}")
     except Exception as e:
         print(f"  -> Could not parse API data during refresh for {token.symbol}: {e}")
+
+# 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+
 
 async def collect_data_for_watchlist_coin(token: Token):
     """
@@ -1519,13 +1566,19 @@ async def run_trade_cycle(public_key, private_key, mint_address, rpc_url):
     sell_sig = await asyncio.to_thread(trade.sell, public_key, private_key, mint_address, rpc_url)
     return buy_sig, sell_sig
 
-async def execute_trade_strategy(token_websocket_data, public_key, private_key, rpc_url):
-    """Handles the entire lifecycle for a watchlist token with maximum speed."""
-    mint_address = token_websocket_data.get('mint')
-    if not mint_address:
-        print("🚨 Cannot execute trade, mint address is missing.")
-        return
+# 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 
+# In pumplistener/listener.py
+
+async def execute_trade_strategy(token_websocket_data, public_key, private_key, rpc_url):
+    """
+    MODIFIED: Now completes monitoring BEFORE sending the email summary.
+    """
+    # ... (the pre-flight check and trading logic remains the same)
+    mint_address = token_websocket_data.get('mint')
+    if not mint_address: return
+    
+    # ... (code to check MAX_BUY_MARKET_CAP)
     trade_task = asyncio.create_task(run_trade_cycle(public_key, private_key, mint_address, rpc_url))
 
     print(f"📈 Watchlist hit for {token_websocket_data.get('symbol')}. Firing trade task immediately...")
@@ -1536,26 +1589,72 @@ async def execute_trade_strategy(token_websocket_data, public_key, private_key, 
         'name': token_websocket_data.get('name', 'N/A'),
         'symbol': token_websocket_data.get('symbol', 'N/A'),
         'mint_address': mint_address,
-        # 'sol_amount': token_websocket_data.get('solAmount', 0),
         'sol_amount': token_websocket_data.get('solAmount') or 0, # <-- APPLY FIX HERE
         'creator_address': token_websocket_data.get('traderPublicKey', 'N/A'),
         'pump_fun_link': f"https://pump.fun/{mint_address}",
         'is_from_watchlist': True
     }
-    db_save_task = asyncio.create_task(save_token_to_db(token_db_data))
+
+    db_save_task = asyncio.create_task(save_token_to_db(token_db_data)) # token_db_data must be defined here
 
     trade_signatures = await trade_task
     token_object = await db_save_task
-    buy_signature, sell_signature = trade_signatures
+    buy_signature, sell_signature, buy_timestamp = trade_signatures
 
     if token_object:
-        print(f"✅ Trade and DB save complete for {token_object.symbol}. Starting post-trade actions.")
-        await asyncio.gather(
-            send_trade_notification_email(token_object, buy_signature, sell_signature),
-            collect_data_for_watchlist_coin(token_object)
-        )
+        if buy_signature:
+            token_object.buy_timestamp = buy_timestamp
+            await token_object.asave()
+
+        # --- THIS IS THE NEW SEQUENCE ---
+        # 1. First, complete the 10-minute data collection.
+        print(f"✅ Trade and DB save complete for {token_object.symbol}. Starting post-trade data collection...")
+        await collect_data_for_watchlist_coin(token_object)
+        
+        # 2. THEN, send the email, which will now contain all the collected data.
+        await send_trade_notification_email(token_object, buy_signature, sell_signature)
     else:
         print(f"🚨 Could not run post-trade actions for {mint_address}, token object not available.")
+
+# 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+
+# async def execute_trade_strategy(token_websocket_data, public_key, private_key, rpc_url):
+#     """Handles the entire lifecycle for a watchlist token with maximum speed."""
+#     mint_address = token_websocket_data.get('mint')
+#     if not mint_address:
+#         print("🚨 Cannot execute trade, mint address is missing.")
+#         return
+
+#     trade_task = asyncio.create_task(run_trade_cycle(public_key, private_key, mint_address, rpc_url))
+
+#     print(f"📈 Watchlist hit for {token_websocket_data.get('symbol')}. Firing trade task immediately...")
+
+#     token_db_data = {
+#         # 'timestamp': timezone.now(),
+#         'timestamp': timezone.now() + timedelta(hours=5, minutes=30),
+#         'name': token_websocket_data.get('name', 'N/A'),
+#         'symbol': token_websocket_data.get('symbol', 'N/A'),
+#         'mint_address': mint_address,
+#         # 'sol_amount': token_websocket_data.get('solAmount', 0),
+#         'sol_amount': token_websocket_data.get('solAmount') or 0, # <-- APPLY FIX HERE
+#         'creator_address': token_websocket_data.get('traderPublicKey', 'N/A'),
+#         'pump_fun_link': f"https://pump.fun/{mint_address}",
+#         'is_from_watchlist': True
+#     }
+#     db_save_task = asyncio.create_task(save_token_to_db(token_db_data))
+
+#     trade_signatures = await trade_task
+#     token_object = await db_save_task
+#     buy_signature, sell_signature = trade_signatures
+
+#     if token_object:
+#         print(f"✅ Trade and DB save complete for {token_object.symbol}. Starting post-trade actions.")
+#         await asyncio.gather(
+#             send_trade_notification_email(token_object, buy_signature, sell_signature),
+#             collect_data_for_watchlist_coin(token_object)
+#         )
+#     else:
+#         print(f"🚨 Could not run post-trade actions for {mint_address}, token object not available.")
 
 # ====================================================================================================================
 

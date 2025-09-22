@@ -13,10 +13,16 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 from pathlib import Path
 import os
 import dj_database_url # <--- ADD THIS IMPORT
+from dotenv import load_dotenv # <--- ADD THIS
+
+load_dotenv() # <--- ADD THIS
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# --- ADD THIS LINE HERE ---
+load_dotenv(os.path.join(BASE_DIR, '.env'))
+# --- END OF NEW LINE ---
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -144,6 +150,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 DEFAULT_FROM_EMAIL = 'cryptoalert403@gmail.com'
 
 EMAIL_BACKEND = 'anymail.backends.mailjet.EmailBackend'
+
 ANYMAIL = {
     "MAILJET_API_KEY": os.environ.get('MAILJET_API_KEY'),
     "MAILJET_SECRET_KEY": os.environ.get('MAILJET_SECRET_KEY'),
