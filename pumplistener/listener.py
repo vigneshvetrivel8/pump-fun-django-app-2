@@ -1584,7 +1584,7 @@ async def execute_trade_strategy(token_websocket_data, public_key, private_key, 
         'pump_fun_link': f"https://pump.fun/{mint_address}",
         'is_from_watchlist': True
     }
-    
+
     db_save_task = asyncio.create_task(save_token_to_db(token_db_data))
 
     # Wait for the trade and the initial DB save to complete
@@ -1601,10 +1601,19 @@ async def execute_trade_strategy(token_websocket_data, public_key, private_key, 
         # --- NEW SEQUENCE ---
         # 1. First, complete the 10-minute data collection.
         print(f"✅ Trade and DB save complete for {token_object.symbol}. Starting post-trade data collection...")
-        await collect_data_for_watchlist_coin(token_object)
+        # ********************************************************************************************************
+        # await collect_data_for_watchlist_coin(token_object)
         
-        # 2. THEN, send the email, which will now contain all the collected data.
-        await send_trade_notification_email(token_object, buy_signature, sell_signature)
+        # # 2. THEN, send the email, which will now contain all the collected data.
+        # await send_trade_notification_email(token_object, buy_signature, sell_signature)
+
+        # ========================================================================================================
+        
+        await asyncio.gather(
+            send_trade_notification_email(token_object, buy_signature, sell_signature),
+            collect_data_for_watchlist_coin(token_object)
+        )
+        # ********************************************************************************************************
     else:
         print(f"🚨 Could not run post-trade actions for {mint_address}, token object not available.")
 
