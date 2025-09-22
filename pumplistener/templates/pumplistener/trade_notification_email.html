@@ -47,7 +47,7 @@
 </html> -->
 
 <!-- ########################################################################################################################### -->
-
+<!-- 
 <!DOCTYPE html>
 <html>
 <head>
@@ -121,6 +121,93 @@
             <li>No data points collected yet.</li>
         {% endfor %}
         </ul>
+
+    </div>
+</body>
+</html> -->
+
+<!-- ########################################################################################################################### -->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Watchlist Trade Alert</title>
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; }
+        .container { padding: 20px; border: 1px solid #ddd; border-radius: 5px; max-width: 600px; margin: auto; }
+        a { color: #007bff; }
+        ul { list-style-type: none; padding-left: 10px; }
+        li { font-family: monospace; font-size: 13px; margin-bottom: 10px; }
+        details { margin-top: 5px; }
+        summary { cursor: pointer; font-size: 11px; color: #555; }
+        pre { font-size: 11px; background-color: #f4f4f4; padding: 5px; border-radius: 4px; overflow-x: auto; border: 1px solid #eee; }
+        /* --- ADD THIS CSS --- */
+        .attribution { text-align: center; font-size: 12px; color: #888; margin-top: 20px; }
+        .attribution a { color: #888; text-decoration: none; }
+        /* --- END OF CSS --- */
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>📈 Watchlist Trade Executed: {{ token.symbol }}</h2>
+        <p>A buy-and-sell cycle was attempted for a token on your watchlist.</p>
+        <ul>
+            <li><strong>Name:</strong> {{ token.name }}</li>
+            <li><strong>Symbol:</strong> {{ token.symbol }}</li>
+            <li><strong>Mint:</strong> <a href="https://solscan.io/token/{{ token.mint_address }}">{{ token.mint_address }}</a></li>
+            <li><strong>Pump.fun:</strong> <a href="{{ token.pump_fun_link }}">{{ token.pump_fun_link }}</a></li>
+        </ul>
+        <hr>
+        <h3>Trade Details:</h3>
+        <p>
+            <strong>Buy Transaction:</strong>
+            {% if buy_sig %}
+                <a href="https://solscan.io/tx/{{ buy_sig }}">{{ buy_sig }}</a>
+            {% else %}
+                Buy Failed or Signature Not Available.
+            {% endif %}
+        </p>
+        <p>
+            <strong>Sell Transaction:</strong>
+            {% if sell_sig %}
+                <a href="https://solscan.io/tx/{{ sell_sig }}">{{ sell_sig }}</a>
+            {% else %}
+                Sell Failed or Signature Not Available.
+            {% endif %}
+        </p>
+        <hr>
+        
+        <h3>5-Minute Data Log:</h3>
+        <ul>
+        {% for point in token.data_points.all %}
+            <li>
+                <strong>{{ point.timestamp|date:"H:i:s" }}</strong> - 
+                {% if 'error' in point.data %}
+                    <span style="color: red;">API Error: {{ point.data.error }}</span>
+                {% else %}
+                    {% if point.data.source == "moralis_metadata" %}
+                        Moralis MC: <strong>${{ point.data.data.fullyDilutedValue }}</strong>
+                    {% elif point.data.source == "moralis_holder_stats" %}
+                        Moralis Holders: <strong>{{ point.data.data.totalHolders }}</strong>
+                    {% elif point.data.source == "helius_getTokenLargestAccounts" %}
+                        Helius Top 20 Holders: <strong>{{ point.data.data.result.value|length }}</strong>
+                    {% else %}
+                        Unknown data point.
+                    {% endif %}
+
+                    <details>
+                        <summary>Show full data</summary>
+                        <pre>{{ point.data.data|safe }}</pre>
+                    </details>
+                {% endif %}
+            </li>
+        {% empty %}
+            <li>No data points collected yet.</li>
+        {% endfor %}
+        </ul>
+        <p class="attribution">
+            Data powered by <a href="https://moralis.io" target="_blank">Moralis</a>
+        </p>
 
     </div>
 </body>

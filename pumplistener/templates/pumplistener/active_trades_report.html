@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html>
 <head>
     <title>Active Trades Status Report</title>
@@ -40,4 +40,58 @@
     <p>No active trades to report.</p>
     {% endif %}
 </body>
+</html> -->
+
+<!-- ############################################################################################## -->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Active Trades Status Report</title>
+    <style>
+        body { font-family: sans-serif; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; }
+        th { background-color: #f2f2f2; }
+        /* --- ADD THIS CSS --- */
+        .attribution { text-align: center; font-size: 12px; color: #888; margin-top: 20px; }
+        .attribution a { color: #888; text-decoration: none; }
+        /* --- END OF CSS --- */
+    </style>
+</head>
+<body>
+    <h2>Active Trades Report - {{ report_time }}</h2>
+    {% if tokens %}
+    <table>
+        <thead>
+            <tr>
+                <th>Symbol</th>
+                <th>Age</th>
+                <th>Initial MC</th>
+                <th>Current MC</th>
+                <th>Highest MC</th>
+                <th>Holders</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for token in tokens %}
+            <tr>
+                <td><a href="{{ token.pump_fun_link }}">{{ token.symbol }}</a></td>
+                <td>{{ token.age }}</td>
+                <td>${{ token.initial_market_cap|floatformat:2 }}</td>
+                <td>${{ token.current_market_cap|floatformat:2 }}</td>
+                <td>${{ token.highest_market_cap|floatformat:2 }}</td>
+                <td>{{ token.current_holder_count }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No active trades to report.</p>
+    {% endif %}
+
+    <p class="attribution">
+        Data powered by <a href="https://moralis.com" target="_blank">Moralis</a>
+    </p>
+    </body>
 </html>
