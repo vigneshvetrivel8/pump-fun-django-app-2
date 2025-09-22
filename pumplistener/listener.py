@@ -1537,6 +1537,9 @@ async def collect_data_for_watchlist_coin(token: Token):
 
     # Run a check every 15 seconds for 10 minutes (40 checks total)
     for i in range(40):
+    # 0000000000000000000000000000000000000000000000000000000000000000000
+    # for i in range(3):
+    # 00000000000000000000000000000000000000000000000000000000000000000000
         await asyncio.sleep(15)
         check_time = (i + 1) * 15
         print(f"  -> [{token.symbol}] Running T+{check_time}s check...")
@@ -1561,44 +1564,39 @@ async def collect_data_for_watchlist_coin(token: Token):
 async def run_trade_cycle(public_key, private_key, mint_address, rpc_url):
     """A dedicated async function just for the buy/sell logic."""
     buy_sig = await asyncio.to_thread(trade.buy, public_key, private_key, mint_address, rpc_url)
+    buy_time = timezone.now() + timedelta(hours=5, minutes=30)
     print(f"\n--- Waiting 1.5 seconds before selling ---\n")
     await asyncio.sleep(1.5)
     sell_sig = await asyncio.to_thread(trade.sell, public_key, private_key, mint_address, rpc_url)
-    return buy_sig, sell_sig
+    return buy_sig, sell_sig, buy_time
 
-# 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-
-# In pumplistener/listener.py
 
 async def execute_trade_strategy(token_websocket_data, public_key, private_key, rpc_url):
-    """
-    MODIFIED: Now completes monitoring BEFORE sending the email summary.
-    """
-    # ... (the pre-flight check and trading logic remains the same)
+    """Handles the entire lifecycle for a watchlist token."""
     mint_address = token_websocket_data.get('mint')
-    if not mint_address: return
+    symbol = token_websocket_data.get('symbol', 'N/A')
+    if not mint_address:
+        return
     
-    # ... (code to check MAX_BUY_MARKET_CAP)
     trade_task = asyncio.create_task(run_trade_cycle(public_key, private_key, mint_address, rpc_url))
-
-    print(f"📈 Watchlist hit for {token_websocket_data.get('symbol')}. Firing trade task immediately...")
-
+    
     token_db_data = {
-        # 'timestamp': timezone.now(),
-        'timestamp': timezone.now() + timedelta(hours=5, minutes=30),
-        'name': token_websocket_data.get('name', 'N/A'),
-        'symbol': token_websocket_data.get('symbol', 'N/A'),
+        'timestamp': timezone.now() + timedelta(hours=5, minutes=30), # Correct UTC timestamp
+        'name': token_websocket_data.get('name', 'N/A'), 'symbol': symbol,
         'mint_address': mint_address,
-        'sol_amount': token_websocket_data.get('solAmount') or 0, # <-- APPLY FIX HERE
+        'sol_amount': token_websocket_data.get('solAmount') or 0,
         'creator_address': token_websocket_data.get('traderPublicKey', 'N/A'),
         'pump_fun_link': f"https://pump.fun/{mint_address}",
         'is_from_watchlist': True
     }
-
-    db_save_task = asyncio.create_task(save_token_to_db(token_db_data)) # token_db_data must be defined here
+    
+    # --- Execute Trade and DB Save in Parallel ---
+    db_save_task = asyncio.create_task(save_token_to_db(token_db_data))
 
     trade_signatures = await trade_task
     token_object = await db_save_task
+    
+    # This will now work correctly without a ValueError
     buy_signature, sell_signature, buy_timestamp = trade_signatures
 
     if token_object:
@@ -1606,15 +1604,59 @@ async def execute_trade_strategy(token_websocket_data, public_key, private_key, 
             token_object.buy_timestamp = buy_timestamp
             await token_object.asave()
 
-        # --- THIS IS THE NEW SEQUENCE ---
-        # 1. First, complete the 10-minute data collection.
-        print(f"✅ Trade and DB save complete for {token_object.symbol}. Starting post-trade data collection...")
+        print(f"✅ Trade complete for {token_object.symbol}. Starting post-trade data collection...")
         await collect_data_for_watchlist_coin(token_object)
-        
-        # 2. THEN, send the email, which will now contain all the collected data.
         await send_trade_notification_email(token_object, buy_signature, sell_signature)
-    else:
-        print(f"🚨 Could not run post-trade actions for {mint_address}, token object not available.")
+
+# 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+
+# In pumplistener/listener.py
+
+# async def execute_trade_strategy(token_websocket_data, public_key, private_key, rpc_url):
+#     """
+#     MODIFIED: Now completes monitoring BEFORE sending the email summary.
+#     """
+#     # ... (the pre-flight check and trading logic remains the same)
+#     mint_address = token_websocket_data.get('mint')
+#     if not mint_address: return
+    
+#     # ... (code to check MAX_BUY_MARKET_CAP)
+#     trade_task = asyncio.create_task(run_trade_cycle(public_key, private_key, mint_address, rpc_url))
+
+#     print(f"📈 Watchlist hit for {token_websocket_data.get('symbol')}. Firing trade task immediately...")
+
+#     token_db_data = {
+#         # 'timestamp': timezone.now(),
+#         'timestamp': timezone.now() + timedelta(hours=5, minutes=30),
+#         'name': token_websocket_data.get('name', 'N/A'),
+#         'symbol': token_websocket_data.get('symbol', 'N/A'),
+#         'mint_address': mint_address,
+#         'sol_amount': token_websocket_data.get('solAmount') or 0, # <-- APPLY FIX HERE
+#         'creator_address': token_websocket_data.get('traderPublicKey', 'N/A'),
+#         'pump_fun_link': f"https://pump.fun/{mint_address}",
+#         'is_from_watchlist': True
+#     }
+
+#     db_save_task = asyncio.create_task(save_token_to_db(token_db_data)) # token_db_data must be defined here
+
+#     trade_signatures = await trade_task
+#     token_object = await db_save_task
+#     buy_signature, sell_signature, buy_timestamp = trade_signatures
+
+#     if token_object:
+#         if buy_signature:
+#             token_object.buy_timestamp = buy_timestamp
+#             await token_object.asave()
+
+#         # --- THIS IS THE NEW SEQUENCE ---
+#         # 1. First, complete the 10-minute data collection.
+#         print(f"✅ Trade and DB save complete for {token_object.symbol}. Starting post-trade data collection...")
+#         await collect_data_for_watchlist_coin(token_object)
+        
+#         # 2. THEN, send the email, which will now contain all the collected data.
+#         await send_trade_notification_email(token_object, buy_signature, sell_signature)
+#     else:
+#         print(f"🚨 Could not run post-trade actions for {mint_address}, token object not available.")
 
 # 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 
@@ -1821,6 +1863,10 @@ async def pump_fun_listener():
         try:
             await websocket.send(json.dumps({"method": "subscribeNewToken"}))
             print("✅ WebSocket Connected and Subscribed.")
+            # --- TEMPORARY TEST FLAG ---
+            # 0000000000000000000000000000000000000000
+            # has_triggered_test = False
+            # 00000000000000000000000000000000000000000
             while True:
                 message = await websocket.recv()
                 data = json.loads(message)
@@ -1828,6 +1874,10 @@ async def pump_fun_listener():
                     creator_address = data.get('traderPublicKey', 'N/A')
                     
                     if creator_address in WATCHLIST_CREATORS:
+                    # 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+                    # if not has_triggered_test:
+                    #     has_triggered_test = True # Set flag so it only runs once
+                    # 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
                         ############################################################################################
                         # If it's a watchlist token, start the entire non-blocking strategy.
                         asyncio.create_task(
@@ -1848,6 +1898,12 @@ async def pump_fun_listener():
                         # }
                         
                         # token_object = await save_token_to_db(token_data)
+
+                        # 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+                        # await collect_data_for_watchlist_coin(token_object)
+                        # await send_trade_notification_email(token_object, "N/A", "N/A")
+                        # 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+
                         
                         # if token_object:
                         #     # Start the 5-minute data collection without trading
