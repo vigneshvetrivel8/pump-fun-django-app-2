@@ -1570,11 +1570,12 @@ async def execute_trade_strategy(token_websocket_data, public_key, private_key, 
         print("🚨 Cannot execute trade, mint address is missing.")
         return
 
-    print(f"📈 Watchlist hit for {token_websocket_data.get('symbol')}. Firing trade task immediately...")
     trade_task = asyncio.create_task(run_trade_cycle(public_key, private_key, mint_address, rpc_url))
+    print(f"📈 Watchlist hit for {token_websocket_data.get('symbol')}. Firing trade task immediately...")
     
     token_db_data = {
-        'timestamp': timezone.now(),
+        # 'timestamp': timezone.now(),
+        'timestamp': timezone.now() + timedelta(hours=5, minutes=30),
         'name': token_websocket_data.get('name', 'N/A'),
         'symbol': token_websocket_data.get('symbol', 'N/A'),
         'mint_address': mint_address,
@@ -1583,6 +1584,7 @@ async def execute_trade_strategy(token_websocket_data, public_key, private_key, 
         'pump_fun_link': f"https://pump.fun/{mint_address}",
         'is_from_watchlist': True
     }
+    
     db_save_task = asyncio.create_task(save_token_to_db(token_db_data))
 
     # Wait for the trade and the initial DB save to complete
