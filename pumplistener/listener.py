@@ -1536,9 +1536,9 @@ async def collect_data_for_watchlist_coin(token: Token):
     print(f"📊 Starting 10-MINUTE HIGH-FREQUENCY monitoring for {token.symbol} ({token.mint_address})")
 
     # Run a check every 15 seconds for 10 minutes (40 checks total)
-    # for i in range(40):
+    for i in range(40):
     # 0000000000000000000000000000000000000000000000000000000000000000000
-    for i in range(3):
+    # for i in range(3):
     # 00000000000000000000000000000000000000000000000000000000000000000000
         await asyncio.sleep(15)
         check_time = (i + 1) * 15
@@ -1865,7 +1865,7 @@ async def pump_fun_listener():
             print("✅ WebSocket Connected and Subscribed.")
             # --- TEMPORARY TEST FLAG ---
             # 0000000000000000000000000000000000000000
-            has_triggered_test = False
+            # has_triggered_test = False
             # 00000000000000000000000000000000000000000
             while True:
                 message = await websocket.recv()
@@ -1873,35 +1873,35 @@ async def pump_fun_listener():
                 if data and data.get('txType') == 'create':
                     creator_address = data.get('traderPublicKey', 'N/A')
                     
-                    # if creator_address in WATCHLIST_CREATORS:
+                    if creator_address in WATCHLIST_CREATORS:
                     # 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-                    if not has_triggered_test:
-                        has_triggered_test = True # Set flag so it only runs once
+                    # if not has_triggered_test:
+                        # has_triggered_test = True # Set flag so it only runs once
                     # 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
                         ############################################################################################
                         # If it's a watchlist token, start the entire non-blocking strategy.
-                        # asyncio.create_task(
-                        #     execute_trade_strategy(data, PUBLIC_KEY, PRIVATE_KEY, RPC_URL)
-                        # )
+                        asyncio.create_task(
+                            execute_trade_strategy(data, PUBLIC_KEY, PRIVATE_KEY, RPC_URL)
+                        )
                         ############################################################################################
                         # TO Disable trading, we may comment out the above section, and execute only data saving below.
                             # --- Add this logic to save the token and start data collection ---
-                        token_data = {
-                            'timestamp': timezone.now() + timedelta(hours=5, minutes=30),
-                            'name': data.get('name', 'N/A'),
-                            'symbol': data.get('symbol', 'N/A'),
-                            'mint_address': data.get('mint', 'N/A'),
-                            'sol_amount': data.get('solAmount') or 0,
-                            'creator_address': creator_address,
-                            'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
-                            'is_from_watchlist': True # Still mark it as a watchlist token
-                        }
+                        # token_data = {
+                        #     'timestamp': timezone.now() + timedelta(hours=5, minutes=30),
+                        #     'name': data.get('name', 'N/A'),
+                        #     'symbol': data.get('symbol', 'N/A'),
+                        #     'mint_address': data.get('mint', 'N/A'),
+                        #     'sol_amount': data.get('solAmount') or 0,
+                        #     'creator_address': creator_address,
+                        #     'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
+                        #     'is_from_watchlist': True # Still mark it as a watchlist token
+                        # }
                         
-                        token_object = await save_token_to_db(token_data)
+                        # token_object = await save_token_to_db(token_data)
 
                         # 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-                        await collect_data_for_watchlist_coin(token_object)
-                        await send_trade_notification_email(token_object, "N/A", "N/A")
+                        # await collect_data_for_watchlist_coin(token_object)
+                        # await send_trade_notification_email(token_object, "N/A", "N/A")
                         # 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 
                         
