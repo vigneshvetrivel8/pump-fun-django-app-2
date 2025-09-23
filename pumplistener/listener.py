@@ -1570,19 +1570,35 @@ async def run_trade_cycle(public_key, private_key, mint_address, rpc_url):
     sell_sig = await asyncio.to_thread(trade.sell, public_key, private_key, mint_address, rpc_url)
     return buy_sig, sell_sig, buy_time
 
+# 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 
+async def monitor_and_report(token_object, buy_signature, sell_signature):
+    """
+    A dedicated background task that first runs the 10-minute monitoring,
+    and then sends the final summary email.
+    """
+    print(f"✅ Trade complete for {token_object.symbol}. Starting post-trade actions in the background...")
+    
+    # 1. First, complete the 10-minute data collection.
+    await collect_data_for_watchlist_coin(token_object)
+    
+    # 2. THEN, send the email, which will now contain all the collected data.
+    await send_trade_notification_email(token_object, buy_signature, sell_signature)
+
+# 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 async def execute_trade_strategy(token_websocket_data, public_key, private_key, rpc_url):
     """Handles the entire lifecycle for a watchlist token."""
     mint_address = token_websocket_data.get('mint')
-    symbol = token_websocket_data.get('symbol', 'N/A')
     if not mint_address:
         return
     
     trade_task = asyncio.create_task(run_trade_cycle(public_key, private_key, mint_address, rpc_url))
+    print(f"📈 Watchlist hit for {token_websocket_data.get('symbol')}. Firing trade task immediately...")
     
     token_db_data = {
         'timestamp': timezone.now() + timedelta(hours=5, minutes=30), # Correct UTC timestamp
-        'name': token_websocket_data.get('name', 'N/A'), 'symbol': symbol,
+        'name': token_websocket_data.get('name', 'N/A'), 
+        'symbol': token_websocket_data.get('symbol', 'N/A'),
         'mint_address': mint_address,
         'sol_amount': token_websocket_data.get('solAmount') or 0,
         'creator_address': token_websocket_data.get('traderPublicKey', 'N/A'),
@@ -1592,7 +1608,6 @@ async def execute_trade_strategy(token_websocket_data, public_key, private_key, 
     
     # --- Execute Trade and DB Save in Parallel ---
     db_save_task = asyncio.create_task(save_token_to_db(token_db_data))
-
     trade_signatures = await trade_task
     token_object = await db_save_task
     
@@ -1604,9 +1619,13 @@ async def execute_trade_strategy(token_websocket_data, public_key, private_key, 
             token_object.buy_timestamp = buy_timestamp
             await token_object.asave()
 
-        print(f"✅ Trade complete for {token_object.symbol}. Starting post-trade data collection...")
-        await collect_data_for_watchlist_coin(token_object)
-        await send_trade_notification_email(token_object, buy_signature, sell_signature)
+        # --- Fire and forget the long-running monitoring and reporting task ---
+        # This function now exits immediately, keeping the main listener free.
+        asyncio.create_task(
+            monitor_and_report(token_object, buy_signature, sell_signature)
+        )
+    else:
+        print(f"🚨 Could not start post-trade actions for {mint_address} because token object was not saved.")
 
 # 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 
