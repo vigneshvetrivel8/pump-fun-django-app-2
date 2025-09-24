@@ -175,9 +175,19 @@
                 Sell Failed or Signature Not Available.
             {% endif %}
         </p>
+        {% if sell_reason %}
+        <hr>
+        <h3>Strategy Outcome:</h3>
+        <p>
+            <strong>Simulated Sell Triggered at:</strong> {{ sell_trigger_timestamp|date:"Y-m-d H:i:s" }}<br>
+            <strong>Reason:</strong><br>
+            <span style="color: #c0392b; font-weight: bold;">{{ sell_reason }}</span>
+        </p>
+        <hr>
+        {% endif %}
         <hr>
         
-        <h3>5-Minute Data Log:</h3>
+        <h3>10-Minute Data Log:</h3>
         <ul>
         {% for point in token.data_points.all %}
             <li>

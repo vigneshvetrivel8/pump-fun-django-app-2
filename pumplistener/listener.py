@@ -1314,6 +1314,8 @@ from dotenv import load_dotenv
 from .models import Token, TokenDataPoint
 from . import trade
 
+import collections
+
 # --- Load Environment Variables ---
 load_dotenv()
 
@@ -1529,33 +1531,100 @@ async def refresh_token_state(token: Token):
 # 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 
 
+# async def collect_data_for_watchlist_coin(token: Token):
+#     """
+#     MODIFIED: Acts as the High-Frequency monitor for the first 10 minutes.
+#     """
+#     print(f"📊 Starting 10-MINUTE HIGH-FREQUENCY monitoring for {token.symbol} ({token.mint_address})")
+
+#     # Run a check every 15 seconds for 10 minutes (40 checks total)
+#     for i in range(40):
+#     # 0000000000000000000000000000000000000000000000000000000000000000000
+#     # for i in range(3):
+#     # 00000000000000000000000000000000000000000000000000000000000000000000
+#         await asyncio.sleep(15)
+#         check_time = (i + 1) * 15
+#         print(f"  -> [{token.symbol}] Running T+{check_time}s check...")
+        
+#         await refresh_token_state(token)
+        
+#         # To check rules, we need the most up-to-date version from the DB
+#         refreshed_token = await Token.objects.aget(pk=token.pk)
+
+#         # --- SIMULATION: Check sell rules ---
+#         if refreshed_token.initial_market_cap and refreshed_token.current_market_cap:
+#             if refreshed_token.current_market_cap >= refreshed_token.initial_market_cap * 2:
+#                 print(f"  -> 🚨 SIMULATION: Would sell {refreshed_token.symbol} for 2x profit!")
+#                 # In the future, a real `trade.sell()` call and a `break` would go here.
+
+#     print(f"✅ Finished 10-minute high-frequency monitoring for {token.symbol}")
+
+# ************************************************************************************************************************
+
+# In pumplistener/listener.py
+
 async def collect_data_for_watchlist_coin(token: Token):
     """
-    MODIFIED: Acts as the High-Frequency monitor for the first 10 minutes.
+    MODIFIED: Now returns the reason for a simulated sell.
     """
-    print(f"📊 Starting 10-MINUTE HIGH-FREQUENCY monitoring for {token.symbol} ({token.mint_address})")
+    print(f"📊 Starting 10-MINUTE HIGH-FREQUENCY monitoring for {token.symbol}...")
+    
+    sell_triggered = False
+    sell_reason = None # Initialize sell_reason
+    holder_history = collections.deque(maxlen=4)
+    sell_trigger_timestamp = None # <-- Initialize timestamp variable
 
-    # Run a check every 15 seconds for 10 minutes (40 checks total)
     for i in range(40):
-    # 0000000000000000000000000000000000000000000000000000000000000000000
-    # for i in range(3):
-    # 00000000000000000000000000000000000000000000000000000000000000000000
+        # ... (rest of the loop and rules are the same) ...
         await asyncio.sleep(15)
         check_time = (i + 1) * 15
         print(f"  -> [{token.symbol}] Running T+{check_time}s check...")
         
         await refresh_token_state(token)
         
-        # To check rules, we need the most up-to-date version from the DB
         refreshed_token = await Token.objects.aget(pk=token.pk)
+        
+        # Add the latest holder count to our history
+        if refreshed_token.current_holder_count is not None:
+            holder_history.append(refreshed_token.current_holder_count)
 
-        # --- SIMULATION: Check sell rules ---
-        if refreshed_token.initial_market_cap and refreshed_token.current_market_cap:
-            if refreshed_token.current_market_cap >= refreshed_token.initial_market_cap * 2:
-                print(f"  -> 🚨 SIMULATION: Would sell {refreshed_token.symbol} for 2x profit!")
-                # In the future, a real `trade.sell()` call and a `break` would go here.
+        # --- STRATEGY SIMULATION ---
+        # Only check rules if a sell hasn't already been triggered
+        if not sell_triggered:
+            sell_reason = None
+            
+            # Rule 1: 30-Second "Viability Gate" (runs on the 2nd check, which is at T+30s)
+            if i == 1 and refreshed_token.current_holder_count < 12 and refreshed_token.current_market_cap < 12000:
+                sell_reason = "Failed 30-Second Viability Gate(<12 holders & MC<$12k)"
+            
+            # Rule 2: Absolute Market Cap Stop-Loss
+            elif refreshed_token.current_market_cap and refreshed_token.current_market_cap < 12000:
+                sell_reason = "Absolute Market Cap Stop-Loss triggered(MC<$12k)"
+
+            # Rule 3: Trailing Market Cap Stop-Loss
+            elif refreshed_token.highest_market_cap and refreshed_token.current_market_cap < (refreshed_token.highest_market_cap * 0.55): # 45% drop
+                sell_reason = f"Trailing MC Stop-Loss triggered (Dropped 45% from peak of ${refreshed_token.highest_market_cap:,.2f})"
+
+            # Rule 4: Peak Holder Stop-Loss
+            elif refreshed_token.peak_holder_count and refreshed_token.current_holder_count < (refreshed_token.peak_holder_count * 0.60): # 40% drop
+                sell_reason = f"Peak Holder Stop-Loss triggered (Dropped 40% from peak of {refreshed_token.peak_holder_count} holders)"
+
+            # Rule 5: Rapid Holder Decline
+            elif len(holder_history) == 4: # Ensure we have enough data points
+                last_3_checks = list(holder_history)[:3]
+                lowest_in_last_3 = min(last_3_checks)
+                if refreshed_token.current_holder_count < (lowest_in_last_3 * 0.75): # 25% drop from recent low
+                    sell_reason = f"Rapid Holder Decline detected (Dropped >25% from recent low of {lowest_in_last_3} holders in last 45s)"
+
+            if sell_reason:
+                print(f"  -> 🚨 SIMULATION: SELL {refreshed_token.symbol} | Reason: {sell_reason}")
+                sell_triggered = True
+                sell_trigger_timestamp = timezone.now() # <-- CAPTURE the timestamp here
+            else:
+                print(f"  -> ✅ SIMULATION: HOLD {refreshed_token.symbol}")
 
     print(f"✅ Finished 10-minute high-frequency monitoring for {token.symbol}")
+    return sell_reason, sell_trigger_timestamp # <-- ADD THIS RETURN STATEMENT
 ###################################################################################################################
 ###################################################################################################################
 ###################################################################################################################
@@ -1572,18 +1641,30 @@ async def run_trade_cycle(public_key, private_key, mint_address, rpc_url):
 
 # 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 
+# async def monitor_and_report(token_object, buy_signature, sell_signature):
+#     """
+#     A dedicated background task that first runs the 10-minute monitoring,
+#     and then sends the final summary email.
+#     """
+#     print(f"✅ Trade complete for {token_object.symbol}. Starting post-trade actions in the background...")
+    
+#     # 1. First, complete the 10-minute data collection.
+#     await collect_data_for_watchlist_coin(token_object)
+    
+#     # 2. THEN, send the email, which will now contain all the collected data.
+#     await send_trade_notification_email(token_object, buy_signature, sell_signature)
+
 async def monitor_and_report(token_object, buy_signature, sell_signature):
     """
-    A dedicated background task that first runs the 10-minute monitoring,
-    and then sends the final summary email.
+    MODIFIED: Captures and passes the sell_reason and trigger_timestamp.
     """
     print(f"✅ Trade complete for {token_object.symbol}. Starting post-trade actions in the background...")
     
-    # 1. First, complete the 10-minute data collection.
-    await collect_data_for_watchlist_coin(token_object)
+    # 1. Capture both returned values.
+    sell_reason, sell_trigger_timestamp = await collect_data_for_watchlist_coin(token_object)
     
-    # 2. THEN, send the email, which will now contain all the collected data.
-    await send_trade_notification_email(token_object, buy_signature, sell_signature)
+    # 2. Pass both values to the email function.
+    await send_trade_notification_email(token_object, buy_signature, sell_signature, sell_reason, sell_trigger_timestamp)
 
 # 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 async def execute_trade_strategy(token_websocket_data, public_key, private_key, rpc_url):
@@ -1846,7 +1927,7 @@ async def execute_trade_strategy(token_websocket_data, public_key, private_key, 
 # ********************************************************************************************************************
 # Replace the old version of this function with this simpler one
 @sync_to_async
-def send_trade_notification_email(token, buy_sig, sell_sig):
+def send_trade_notification_email(token, buy_sig, sell_sig, sell_reason, sell_trigger_timestamp):
     """
     Renders and sends a trade notification email using the default Mailjet backend.
     """
@@ -1859,7 +1940,11 @@ def send_trade_notification_email(token, buy_sig, sell_sig):
     try:
         subject = f"Watchlist Trade Alert: ${token.symbol}"
         html_message = render_to_string('pumplistener/trade_notification_email.html', {
-            'token': token, 'buy_sig': buy_sig, 'sell_sig': sell_sig,
+            'token': token, 
+            'buy_sig': buy_sig, 
+            'sell_sig': sell_sig,
+            'sell_reason': sell_reason,
+            'sell_trigger_timestamp': sell_trigger_timestamp,
         })
         
         send_mail(
