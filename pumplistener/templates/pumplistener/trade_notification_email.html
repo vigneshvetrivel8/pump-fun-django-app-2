@@ -128,7 +128,7 @@
 
 <!-- ########################################################################################################################### -->
 
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html>
 <head>
     <title>Watchlist Trade Alert</title>
@@ -215,6 +215,96 @@
             <li>No data points collected yet.</li>
         {% endfor %}
         </ul>
+        <p class="attribution">
+            Data powered by <a href="https://moralis.com" target="_blank">Moralis</a>
+        </p>
+
+    </div>
+</body>
+</html> -->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Watchlist Trade Alert</title>
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; }
+        .container { padding: 20px; border: 1px solid #ddd; border-radius: 5px; max-width: 600px; margin: auto; }
+        a { color: #007bff; }
+        ul { list-style-type: none; padding-left: 10px; }
+        li { font-family: monospace; font-size: 13px; margin-bottom: 10px; }
+        details { margin-top: 5px; }
+        summary { cursor: pointer; font-size: 11px; color: #555; }
+        pre { font-size: 11px; background-color: #f4f4f4; padding: 5px; border-radius: 4px; overflow-x: auto; border: 1px solid #eee; }
+        .attribution { text-align: center; font-size: 12px; color: #888; margin-top: 20px; }
+        .attribution a { color: #888; text-decoration: none; }
+        .log-item { 
+            border: 1px solid #eee; 
+            padding: 10px; 
+            border-radius: 4px; 
+            margin-bottom: 15px;
+        }
+        .log-item ul { padding-left: 5px; }
+        .log-item li { margin-bottom: 8px; }
+        .decision { 
+            margin-top: 10px; 
+            padding: 8px; 
+            border-radius: 4px; 
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <hr>
+        <h3>Monitoring Log (45s):</h3>
+
+        {% for check in combined_log %}
+            <div class="log-item">
+                <h4>Check at: {{ check.timestamp|date:"H:i:s" }}</h4>
+                <ul>
+                    <li>
+                        {% with point=check.metadata_point %}
+                            {% if 'error' in point.data %}
+                                <span style="color: red;">Moralis MC API Error: {{ point.data.error }}</span>
+                            {% else %}
+                                Moralis MC: <strong>${{ point.data.data.fullyDilutedValue|default:"None" }}</strong>
+                                <details>
+                                    <summary>Show full data</summary>
+                                    <pre>{{ point.data.data|safe }}</pre>
+                                </details>
+                            {% endif %}
+                        {% endwith %}
+                    </li>
+                    <li>
+                        {% with point=check.holders_point %}
+                            {% if 'error' in point.data %}
+                                <span style="color: red;">Moralis Holders API Error: {{ point.data.error }}</span>
+                            {% else %}
+                                Moralis Holders: <strong>{{ point.data.data.totalHolders|default:"None" }}</strong>
+                                <details>
+                                    <summary>Show full data</summary>
+                                    <pre>{{ point.data.data|safe }}</pre>
+                                </details>
+                            {% endif %}
+                        {% endwith %}
+                    </li>
+                </ul>
+                <div class="decision">
+                    {% with d=check.decision %}
+                        {% if d.action == 'SELL' %}
+                            <strong style="color: #c0392b;">Decision: SELL</strong><br>
+                            {{ d.reason }}
+                        {% else %}
+                            <strong style="color: #27ae60;">Decision: HOLD</strong><br>
+                            {{ d.reason }}
+                        {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+        {% empty %}
+            <p>No monitoring data was logged.</p>
+        {% endfor %}
         <p class="attribution">
             Data powered by <a href="https://moralis.com" target="_blank">Moralis</a>
         </p>

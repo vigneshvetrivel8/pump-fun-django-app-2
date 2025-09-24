@@ -19,6 +19,7 @@ class Token(models.Model):
     current_market_cap = models.FloatField(null=True, blank=True)
     highest_market_cap = models.FloatField(null=True, blank=True)
     current_holder_count = models.IntegerField(null=True, blank=True)
+    peak_holder_count = models.IntegerField(null=True, blank=True)
     sell_market_cap = models.FloatField(null=True, blank=True)
     # --- END OF NEW FIELDS ---
 
