@@ -121,9 +121,22 @@ def sell(public_key, private_key, mint_address, rpc_url):
     #     print(f"❌ An unexpected error occurred in sell(): {e}")
 
 
-##########################################################################################################################
+# ##########################################################################################################################
+
+# pumplistener/trade.py (TEMPORARY TEST VERSION - TRADING DISABLED)
 
 # def buy(public_key, private_key, mint_address, rpc_url):
-#     return None
+#     """
+#     TRADING IS DISABLED FOR TESTING. This function will not execute a buy.
+#     """
+#     print("🔹 NOTICE: BUY operation skipped because trading is temporarily disabled.")
+#     # Return a dummy signature for testing the email flow
+#     return "DUMMY_BUY_SIGNATURE_FOR_TEST"
+
 # def sell(public_key, private_key, mint_address, rpc_url):
-#     return None
+#     """
+#     TRADING IS DISABLED FOR TESTING. This function will not execute a sell.
+#     """
+#     print("🔹 NOTICE: SELL operation skipped because trading is temporarily disabled.")
+#     # Return a dummy signature for testing the email flow
+#     return "DUMMY_SELL_SIGNATURE_FOR_TEST"
