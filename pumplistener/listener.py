@@ -3258,6 +3258,53 @@ async def get_moralis_holder_stats(mint_address: str):
             print(f"🚨 Error fetching from Moralis (Holders) with key ending in ...{api_key[-4:]}: {e}")
             return {"source": "moralis_holder_stats", "error": str(e)}
 
+# async def refresh_token_state(token: Token):
+#     """MODIFIED: Returns the two data point objects it creates."""
+#     try:
+#         metadata, holders = await asyncio.gather(
+#             get_moralis_metadata(token.mint_address),
+#             get_moralis_holder_stats(token.mint_address)
+#         )
+#         # Capture the returned data point objects
+#         metadata_point = await save_data_point(token, metadata)
+#         holders_point = await save_data_point(token, holders)
+
+#         if 'error' in metadata or 'error' in holders:
+#             print(f"  -> Skipping state update for {token.symbol} due to API error.")
+#             # Still return the points so they can be logged in the email
+#             return metadata_point, holders_point
+
+#         current_mc_str = metadata.get('data', {}).get('fullyDilutedValue')
+#         current_holders_str = holders.get('data', {}).get('totalHolders')
+
+#         if current_mc_str and current_holders_str is not None:
+#             current_mc = float(current_mc_str)
+#             current_holders = int(current_holders_str)
+
+#             @sync_to_async
+#             def update_db():
+#                 t = Token.objects.select_for_update().get(pk=token.pk)
+#                 t.current_market_cap = current_mc
+#                 t.current_holder_count = current_holders
+#                 if not t.initial_market_cap:
+#                     t.initial_market_cap = current_mc
+#                 if not t.highest_market_cap or current_mc > t.highest_market_cap:
+#                     t.highest_market_cap = current_mc
+#                 if not t.peak_holder_count or current_holders > t.peak_holder_count:
+#                     t.peak_holder_count = current_holders
+#                 t.save()
+            
+#             await update_db()
+#             print(f"  -> Refreshed data for {token.symbol}: MC=${current_mc}, Holders={current_holders}")
+        
+#         # Return the created database objects
+#         return metadata_point, holders_point
+#     except Exception as e:
+#         print(f"  -> Could not parse API data during refresh for {token.symbol}: {e}")
+#         return None, None
+
+# pumplistener/listener.py
+
 async def refresh_token_state(token: Token):
     """MODIFIED: Returns the two data point objects it creates."""
     try:
@@ -3265,13 +3312,11 @@ async def refresh_token_state(token: Token):
             get_moralis_metadata(token.mint_address),
             get_moralis_holder_stats(token.mint_address)
         )
-        # Capture the returned data point objects
         metadata_point = await save_data_point(token, metadata)
         holders_point = await save_data_point(token, holders)
 
         if 'error' in metadata or 'error' in holders:
             print(f"  -> Skipping state update for {token.symbol} due to API error.")
-            # Still return the points so they can be logged in the email
             return metadata_point, holders_point
 
         current_mc_str = metadata.get('data', {}).get('fullyDilutedValue')
@@ -3283,7 +3328,11 @@ async def refresh_token_state(token: Token):
 
             @sync_to_async
             def update_db():
-                t = Token.objects.select_for_update().get(pk=token.pk)
+                # #### START OF FIX ####
+                # Removed .select_for_update() to resolve the transaction error.
+                t = Token.objects.get(pk=token.pk)
+                # #### END OF FIX ####
+                
                 t.current_market_cap = current_mc
                 t.current_holder_count = current_holders
                 if not t.initial_market_cap:
@@ -3297,7 +3346,6 @@ async def refresh_token_state(token: Token):
             await update_db()
             print(f"  -> Refreshed data for {token.symbol}: MC=${current_mc}, Holders={current_holders}")
         
-        # Return the created database objects
         return metadata_point, holders_point
     except Exception as e:
         print(f"  -> Could not parse API data during refresh for {token.symbol}: {e}")
