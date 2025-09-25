@@ -1,142 +1,142 @@
-# trade.py
+# # trade.py
 
-import requests
-from solders.transaction import VersionedTransaction
-from solders.keypair import Keypair
-from solders.commitment_config import CommitmentLevel
-from solders.rpc.requests import SendVersionedTransaction
-from solders.rpc.config import RpcSendTransactionConfig
-import time
+# import requests
+# from solders.transaction import VersionedTransaction
+# from solders.keypair import Keypair
+# from solders.commitment_config import CommitmentLevel
+# from solders.rpc.requests import SendVersionedTransaction
+# from solders.rpc.config import RpcSendTransactionConfig
+# import time
 
-# Note: The dotenv loading and variable definitions are removed from this file.
+# # Note: The dotenv loading and variable definitions are removed from this file.
 
-def buy(public_key, private_key, mint_address, rpc_url):
-    """
-    Executes a buy transaction.
-    Accepts configuration as arguments.
-    """
-    print("🔹 Executing BUY...")
-    try:
-        response = requests.post(url="https://pumpportal.fun/api/trade-local", data={
-            "publicKey": public_key,
-            "action": "buy",
-            "mint": mint_address,
-            "amount": 0.01,
-            "denominatedInSol": "true",
-            "slippage": 15,
-            # "priorityFee": 0.0001,
-            # "priorityFee": 0.00025,
-            "priorityFee": 0.0001,
-            "pool": "auto"
-        })
-        response.raise_for_status() # Raise an exception for bad status codes
+# def buy(public_key, private_key, mint_address, rpc_url):
+#     """
+#     Executes a buy transaction.
+#     Accepts configuration as arguments.
+#     """
+#     print("🔹 Executing BUY...")
+#     try:
+#         response = requests.post(url="https://pumpportal.fun/api/trade-local", data={
+#             "publicKey": public_key,
+#             "action": "buy",
+#             "mint": mint_address,
+#             "amount": 0.01,
+#             "denominatedInSol": "true",
+#             "slippage": 15,
+#             # "priorityFee": 0.0001,
+#             # "priorityFee": 0.00025,
+#             "priorityFee": 0.0001,
+#             "pool": "auto"
+#         })
+#         response.raise_for_status() # Raise an exception for bad status codes
 
-        keypair = Keypair.from_base58_string(private_key)
-        tx = VersionedTransaction(VersionedTransaction.from_bytes(response.content).message, [keypair])
+#         keypair = Keypair.from_base58_string(private_key)
+#         tx = VersionedTransaction(VersionedTransaction.from_bytes(response.content).message, [keypair])
 
-        # config = RpcSendTransactionConfig(preflight_commitment=CommitmentLevel.Confirmed)
-        # This saves one full network request, which is a huge speed boost
-        config = RpcSendTransactionConfig(skip_preflight=True)
+#         # config = RpcSendTransactionConfig(preflight_commitment=CommitmentLevel.Confirmed)
+#         # This saves one full network request, which is a huge speed boost
+#         config = RpcSendTransactionConfig(skip_preflight=True)
         
-        rpc_response = requests.post(
-            url=rpc_url,
-            headers={"Content-Type": "application/json"},
-            data=SendVersionedTransaction(tx, config).to_json()
-        )
-        rpc_response.raise_for_status()
+#         rpc_response = requests.post(
+#             url=rpc_url,
+#             headers={"Content-Type": "application/json"},
+#             data=SendVersionedTransaction(tx, config).to_json()
+#         )
+#         rpc_response.raise_for_status()
         
-        data = rpc_response.json()
-        print("#" * 150)
-        print(data)
-        print("#" * 150)
+#         data = rpc_response.json()
+#         print("#" * 150)
+#         print(data)
+#         print("#" * 150)
         
-        if 'result' in data:
-            txSignature = data['result']
-            print(f'✅ BUY successful! Transaction: https://solscan.io/tx/{txSignature}')
-            return txSignature # <-- RETURN THE SIGNATURE
-        else:
-            print(f"❌ BUY failed. Response: {data}")
-            return None # <-- RETURN NONE ON FAILURE
+#         if 'result' in data:
+#             txSignature = data['result']
+#             print(f'✅ BUY successful! Transaction: https://solscan.io/tx/{txSignature}')
+#             return txSignature # <-- RETURN THE SIGNATURE
+#         else:
+#             print(f"❌ BUY failed. Response: {data}")
+#             return None # <-- RETURN NONE ON FAILURE
 
-    except requests.exceptions.RequestException as e:
-        print(f"❌ An error occurred during the API request: {e}")
-        return None # <-- RETURN NONE ON EXCEPTION
-    except Exception as e:
-        print(f"❌ An unexpected error occurred in buy(): {e}")
-        return None # <-- RETURN NONE ON EXCEPTION
+#     except requests.exceptions.RequestException as e:
+#         print(f"❌ An error occurred during the API request: {e}")
+#         return None # <-- RETURN NONE ON EXCEPTION
+#     except Exception as e:
+#         print(f"❌ An unexpected error occurred in buy(): {e}")
+#         return None # <-- RETURN NONE ON EXCEPTION
 
 
-def sell(public_key, private_key, mint_address, rpc_url):
-    """
-    Executes a sell transaction for 100% of the token.
-    Accepts configuration as arguments.
-    """
-    print("🔹 Executing SELL (100%)...")
-    # try:
-    response = requests.post(url="https://pumpportal.fun/api/trade-local", data={
-        "publicKey": public_key,
-        "action": "sell",
-        "mint": mint_address,
-        "amount": "100%",
-        "denominatedInSol": "false",
-        "slippage": 99,
-        # "priorityFee": 0.00001,
-        "priorityFee": 0.00005,
-        # "priorityFee": 0.00025,
-        "pool": "auto"
-    })
-    # response.raise_for_status()
+# def sell(public_key, private_key, mint_address, rpc_url):
+#     """
+#     Executes a sell transaction for 100% of the token.
+#     Accepts configuration as arguments.
+#     """
+#     print("🔹 Executing SELL (100%)...")
+#     # try:
+#     response = requests.post(url="https://pumpportal.fun/api/trade-local", data={
+#         "publicKey": public_key,
+#         "action": "sell",
+#         "mint": mint_address,
+#         "amount": "100%",
+#         "denominatedInSol": "false",
+#         "slippage": 99,
+#         # "priorityFee": 0.00001,
+#         "priorityFee": 0.00005,
+#         # "priorityFee": 0.00025,
+#         "pool": "auto"
+#     })
+#     # response.raise_for_status()
 
-    keypair = Keypair.from_base58_string(private_key)
-    tx = VersionedTransaction(VersionedTransaction.from_bytes(response.content).message, [keypair])
+#     keypair = Keypair.from_base58_string(private_key)
+#     tx = VersionedTransaction(VersionedTransaction.from_bytes(response.content).message, [keypair])
 
-    commitment = CommitmentLevel.Confirmed
-    config = RpcSendTransactionConfig(preflight_commitment=commitment)
-    # Remove the old commitment and config lines and replace them with this:
-    # config = RpcSendTransactionConfig(skip_preflight=True)
-    txPayload = SendVersionedTransaction(tx, config)
+#     commitment = CommitmentLevel.Confirmed
+#     config = RpcSendTransactionConfig(preflight_commitment=commitment)
+#     # Remove the old commitment and config lines and replace them with this:
+#     # config = RpcSendTransactionConfig(skip_preflight=True)
+#     txPayload = SendVersionedTransaction(tx, config)
 
-    response = requests.post(
-        # url="Your RPC Endpoint here - Eg: https://api.mainnet-beta.solana.com/",
-        # url="http://fra-sender.helius-rpc.com/fast",
-        # url="https://mainnet.helius-rpc.com/?api-key=5d0a2bb2-0bd2-4f5a-b581-d1785d59e26b",
-        url=rpc_url,
-        headers={"Content-Type": "application/json"},
-        data=SendVersionedTransaction(tx, config).to_json()
-    )
-    print("#" * 150)
-    print(response.json())
-    print("#" * 150)
-    if 'result' in response.json():
-        txSignature = response.json()['result']
-        print(f'✅ SELL successful! Transaction: https://solscan.io/tx/{txSignature}')
-        return txSignature # <-- RETURN THE SIGNATURE
-    else:
-        print(f"❌ SELL failed. Response: {response.json()}")
-        return None # <-- RETURN NONE ON FAILURE
-    # txSignature = response.json()['result']
-    # print(f'Transaction: https://solscan.io/tx/{txSignature}')
+#     response = requests.post(
+#         # url="Your RPC Endpoint here - Eg: https://api.mainnet-beta.solana.com/",
+#         # url="http://fra-sender.helius-rpc.com/fast",
+#         # url="https://mainnet.helius-rpc.com/?api-key=5d0a2bb2-0bd2-4f5a-b581-d1785d59e26b",
+#         url=rpc_url,
+#         headers={"Content-Type": "application/json"},
+#         data=SendVersionedTransaction(tx, config).to_json()
+#     )
+#     print("#" * 150)
+#     print(response.json())
+#     print("#" * 150)
+#     if 'result' in response.json():
+#         txSignature = response.json()['result']
+#         print(f'✅ SELL successful! Transaction: https://solscan.io/tx/{txSignature}')
+#         return txSignature # <-- RETURN THE SIGNATURE
+#     else:
+#         print(f"❌ SELL failed. Response: {response.json()}")
+#         return None # <-- RETURN NONE ON FAILURE
+#     # txSignature = response.json()['result']
+#     # print(f'Transaction: https://solscan.io/tx/{txSignature}')
 
-    # except Exception as e:
-    #     print(f"❌ An unexpected error occurred in sell(): {e}")
+#     # except Exception as e:
+#     #     print(f"❌ An unexpected error occurred in sell(): {e}")
 
 
 # ##########################################################################################################################
 
 # pumplistener/trade.py (TEMPORARY TEST VERSION - TRADING DISABLED)
 
-# def buy(public_key, private_key, mint_address, rpc_url):
-#     """
-#     TRADING IS DISABLED FOR TESTING. This function will not execute a buy.
-#     """
-#     print("🔹 NOTICE: BUY operation skipped because trading is temporarily disabled.")
-#     # Return a dummy signature for testing the email flow
-#     return "DUMMY_BUY_SIGNATURE_FOR_TEST"
+def buy(public_key, private_key, mint_address, rpc_url):
+    """
+    TRADING IS DISABLED FOR TESTING. This function will not execute a buy.
+    """
+    print("🔹 NOTICE: BUY operation skipped because trading is temporarily disabled.")
+    # Return a dummy signature for testing the email flow
+    return "DUMMY_BUY_SIGNATURE_FOR_TEST"
 
-# def sell(public_key, private_key, mint_address, rpc_url):
-#     """
-#     TRADING IS DISABLED FOR TESTING. This function will not execute a sell.
-#     """
-#     print("🔹 NOTICE: SELL operation skipped because trading is temporarily disabled.")
-#     # Return a dummy signature for testing the email flow
-#     return "DUMMY_SELL_SIGNATURE_FOR_TEST"
+def sell(public_key, private_key, mint_address, rpc_url):
+    """
+    TRADING IS DISABLED FOR TESTING. This function will not execute a sell.
+    """
+    print("🔹 NOTICE: SELL operation skipped because trading is temporarily disabled.")
+    # Return a dummy signature for testing the email flow
+    return "DUMMY_SELL_SIGNATURE_FOR_TEST"
