@@ -3117,7 +3117,7 @@ from dotenv import load_dotenv
 
 from .models import Token, TokenDataPoint
 # from . import trade
-from . import trade2
+from . import trade4
 
 import collections
 
@@ -3421,14 +3421,14 @@ async def collect_data_for_watchlist_coin(token: Token):
 
 async def run_trade_cycle(public_key, private_key, mint_address, rpc_url):
     """A dedicated async function just for the buy/sell logic."""
-    # buy_sig = await asyncio.to_thread(trade.buy, public_key, private_key, mint_address, rpc_url)
+    # buy_sig = await asyncio.to_thread(trade3.buy, public_key, private_key, mint_address, rpc_url)
     # The new trade.buy is async, so we call it directly with await!
-    buy_sig = await trade2.buy(public_key, private_key, mint_address, rpc_url)
+    buy_sig = await trade4.buy(public_key, private_key, mint_address, rpc_url)
     buy_time = timezone.now() + timedelta(hours=5, minutes=30)
     print(f"\n--- Waiting 1.5 seconds before selling ---\n")
     await asyncio.sleep(1.5)
     # sell_sig = await asyncio.to_thread(trade.sell, public_key, private_key, mint_address, rpc_url)
-    sell_sig = await asyncio.to_thread(trade2.sell, public_key, private_key, mint_address, rpc_url)
+    sell_sig = await asyncio.to_thread(trade4.sell, public_key, private_key, mint_address, rpc_url)
     return buy_sig, sell_sig, buy_time
 
 async def monitor_and_report(token_object, buy_signature, sell_signature):
@@ -3471,19 +3471,27 @@ async def execute_trade_strategy(token_websocket_data, public_key, private_key, 
     # This will now work correctly without a ValueError
     buy_signature, sell_signature, buy_timestamp = trade_signatures
 
-    if token_object:
-        if buy_signature:
-            token_object.buy_timestamp = buy_timestamp
-            await token_object.asave()
+    # if token_object:
+    #     if buy_signature:
+    #         token_object.buy_timestamp = buy_timestamp
+    #         await token_object.asave()
 
-        # --- Fire and forget the long-running monitoring and reporting task ---
-        # This function now exits immediately, keeping the main listener free.
-        asyncio.create_task(
-            monitor_and_report(token_object, buy_signature, sell_signature)
-        )
-    else:
-        print(f"🚨 Could not start post-trade actions for {mint_address} because token object was not saved.")
+    #     # --- Fire and forget the long-running monitoring and reporting task ---
+    #     # This function now exits immediately, keeping the main listener free.
+    #     asyncio.create_task(
+    #         monitor_and_report(token_object, buy_signature, sell_signature)
+    #     )
+    # else:
+    #     print(f"🚨 Could not start post-trade actions for {mint_address} because token object was not saved.")
+        # Update token with the buy timestamp
+    if buy_signature:
+        token_object.buy_timestamp = buy_timestamp
+        await token_object.asave()
 
+    # --- Fire and forget the long-running monitoring and reporting task ---
+    asyncio.create_task(
+        monitor_and_report(token_object, buy_signature, sell_signature)
+    )
     # ---------------------------------------------------------------------------------------------------------------------
 
     # token_object = await save_token_to_db(token_db_data)
