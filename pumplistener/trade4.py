@@ -31,8 +31,6 @@ if not JITO_ENDPOINTS or not JITO_TIP_ACCOUNTS:
     print("⚠️ JITO_ENDPOINTS or JITO_TIP_ACCOUNTS are not set in the .env file.")
 
 # --- Configuration (Unchanged) ---
-# PRIVATE_KEY = "66iEHNPJgy1wnefNHNFpUmvaLuwhgdseTqVhgkMmY6YeTSjc2cf2sQ7V3yMD6eqp64pjcFVSBrcHsJRAXYfkiF9Z"
-# HELIUS_API_URL = "https://mainnet.helius-rpc.com/?api-key=5d0a2bb2-0bd2-4f5a-b581-d1785d59e26b"
 
 # keypair = Keypair.from_base58_string(PRIVATE_KEY)
 # PUBLIC_KEY = str(keypair.pubkey())
@@ -148,8 +146,9 @@ async def buy(PUBLIC_KEY, PRIVATE_KEY, MINT_ADDRESS, RPC_URL):
 # async def execute_trade(use_jito=True, jito_tip_lamports=100000):
     """Execute Pump.fun trade, now async."""
     use_jito=True, 
-    # jito_tip_lamports=100000
-    jito_tip_lamports=150000
+    # jito_tip_lamports=100000 # this is equivalent to $0.02 only 
+    jito_tip_lamports=150000 # this is equivalent to $0.03 only
+    # we may require $0.2 
     keypair = Keypair.from_base58_string(PRIVATE_KEY)
     print("="*80)
     print("PUMP.FUN PARALLEL JITO BUNDLE TRADER")
