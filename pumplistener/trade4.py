@@ -148,7 +148,8 @@ async def buy(PUBLIC_KEY, PRIVATE_KEY, MINT_ADDRESS, RPC_URL):
 # async def execute_trade(use_jito=True, jito_tip_lamports=100000):
     """Execute Pump.fun trade, now async."""
     use_jito=True, 
-    jito_tip_lamports=100000
+    # jito_tip_lamports=100000
+    jito_tip_lamports=150000
     keypair = Keypair.from_base58_string(PRIVATE_KEY)
     print("="*80)
     print("PUMP.FUN PARALLEL JITO BUNDLE TRADER")
