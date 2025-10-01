@@ -3116,7 +3116,8 @@ from django.conf import settings
 from dotenv import load_dotenv
 
 from .models import Token, TokenDataPoint
-from . import trade
+# from . import trade
+from . import trade2
 
 import collections
 
@@ -3420,11 +3421,14 @@ async def collect_data_for_watchlist_coin(token: Token):
 
 async def run_trade_cycle(public_key, private_key, mint_address, rpc_url):
     """A dedicated async function just for the buy/sell logic."""
-    buy_sig = await asyncio.to_thread(trade.buy, public_key, private_key, mint_address, rpc_url)
+    # buy_sig = await asyncio.to_thread(trade.buy, public_key, private_key, mint_address, rpc_url)
+    # The new trade.buy is async, so we call it directly with await!
+    buy_sig = await trade2.buy(public_key, private_key, mint_address, rpc_url)
     buy_time = timezone.now() + timedelta(hours=5, minutes=30)
     print(f"\n--- Waiting 1.5 seconds before selling ---\n")
     await asyncio.sleep(1.5)
-    sell_sig = await asyncio.to_thread(trade.sell, public_key, private_key, mint_address, rpc_url)
+    # sell_sig = await asyncio.to_thread(trade.sell, public_key, private_key, mint_address, rpc_url)
+    sell_sig = await asyncio.to_thread(trade2.sell, public_key, private_key, mint_address, rpc_url)
     return buy_sig, sell_sig, buy_time
 
 async def monitor_and_report(token_object, buy_signature, sell_signature):
