@@ -12,3 +12,4 @@ python-dotenv
 jito-py-rpc
 base58
 django-anymail[mailjet]
+aiohttp
