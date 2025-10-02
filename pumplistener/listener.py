@@ -3158,6 +3158,7 @@ def save_token_to_db(token_data):
         mint_address=token_data['mint_address'],
         defaults=token_data
     )
+    
     # if created:
         # print(f"✅ Saved to DB: {token.name} ({token.symbol})")
 
