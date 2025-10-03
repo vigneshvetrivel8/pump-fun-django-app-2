@@ -4180,18 +4180,17 @@ async def refresh_token_state(token: Token):
         print(f"  -> Could not parse API data during refresh for {token.symbol}: {e}")
         return None, None
 
+
 async def collect_data_for_watchlist_coin(token: Token, public_key: str, private_key: str, rpc_url: str):
     """
-    Sells at the first trigger, then continues to monitor for the full
-    duration for post-trade analysis.
+    Monitors a token for 10 minutes, sells at the first trigger, and continues 
+    monitoring for post-trade analysis. If no trigger occurs, it sells at the end.
     """
     print(f"📊 Starting LIVE TRADE & POST-SELL monitoring for {token.symbol}...")
     
     combined_log = []
     holder_history = collections.deque(maxlen=4)
     sell_signature = None
-
-    # --- 1. INITIALIZE THE STATE FLAG ---
     has_sold = False
 
     # Monitor for up to 10 minutes (40 checks x 15 seconds)
@@ -4207,7 +4206,7 @@ async def collect_data_for_watchlist_coin(token: Token, public_key: str, private
             holder_history.append(refreshed_token.current_holder_count)
 
         current_reason = None
-        # --- Sell Strategy Rules (No changes here) ---
+        # --- Sell Strategy Rules ---
         if (i == 1 and refreshed_token.current_holder_count is not None and refreshed_token.current_market_cap is not None
                 and refreshed_token.current_holder_count < 12 and refreshed_token.current_market_cap < 12000):
             current_reason = f"Failed 30-Second Viability Gate. Holders: {refreshed_token.current_holder_count}, MC: ${refreshed_token.current_market_cap:,.2f}"
@@ -4226,7 +4225,7 @@ async def collect_data_for_watchlist_coin(token: Token, public_key: str, private
 
         decision = {}
         
-        # --- 2. CHECK THE FLAG BEFORE DECIDING ACTION ---
+        # Check the flag before deciding the action
         if not has_sold:
             # If we haven't sold yet, check the rules for a real trade
             if current_reason:
@@ -4237,8 +4236,8 @@ async def collect_data_for_watchlist_coin(token: Token, public_key: str, private
                 
                 if temp_sell_sig:
                     print(f"  -> ✅ SELL SUCCESSFUL for {token.symbol}. Now entering post-sell monitoring.")
-                    sell_signature = temp_sell_sig # Store the one real signature
-                    has_sold = True # <-- SET THE FLAG!
+                    sell_signature = temp_sell_sig
+                    has_sold = True # Set the flag!
                     decision = {"action": "SELL", "reason": current_reason, "signature": sell_signature}
                 else:
                     print(f"  -> ❌ SELL FAILED for {token.symbol}.")
@@ -4265,10 +4264,25 @@ async def collect_data_for_watchlist_coin(token: Token, public_key: str, private
                 "timestamp": metadata_point.timestamp, "metadata_point": metadata_point, 
                 "holders_point": holders_point, "decision": decision
             })
-        
-        # --- 3. THE BREAK STATEMENT IS GONE ---
-        # This ensures the loop always continues for the full 10 minutes.
             
+    # --- NEW: End of Monitoring Sell ---
+    # If the 10-minute loop finishes and the token was never sold, sell it now.
+    if not has_sold:
+        print(f"  -> ⏰ Monitoring time ended for {token.symbol}. Executing final sell.")
+        final_sell_sig = await asyncio.to_thread(
+            trade.sell, public_key, private_key, token.mint_address, rpc_url
+        )
+        if final_sell_sig:
+            sell_signature = final_sell_sig
+            decision = {"action": "SELL", "reason": "End of 10-minute monitoring period."}
+            # Append one final log entry for the email report
+            combined_log.append({
+                "timestamp": timezone.now(), "metadata_point": None,
+                "holders_point": None, "decision": decision
+            })
+        else:
+             print(f"  -> ❌ FINAL SELL FAILED for {token.symbol}.")
+
     print(f"✅ Finished full monitoring period for {token.symbol}")
     return sell_signature, combined_log
 
@@ -4284,16 +4298,30 @@ async def collect_data_for_watchlist_coin(token: Token, public_key: str, private
 #     sell_sig = await asyncio.to_thread(trade.sell, public_key, private_key, mint_address, rpc_url)
 #     return buy_sig, sell_sig, buy_time
 
-async def monitor_and_report(token_object, buy_signature, public_key, private_key, rpc_url):
-    """Orchestrates the monitoring, selling, and final email reporting."""
-    print(f"✅ Buy complete for {token_object.symbol}. Starting post-trade monitoring...")
-    
-    sell_signature, combined_log = await collect_data_for_watchlist_coin(
-        token_object, public_key, private_key, rpc_url
-    )
-    
-    print(f"📧 Monitoring for {token_object.symbol} finished. Preparing final email report...")
-    await send_trade_notification_email(token_object, buy_signature, sell_signature, combined_log)
+# In listener.py
+
+async def monitor_and_report(token_id, buy_signature, public_key, private_key, rpc_url):
+    """
+    MODIFIED: Now accepts a token_id and fetches the object itself.
+    This completely resolves the race condition.
+    """
+    try:
+        # The first thing we do is get the token object.
+        token_object = await Token.objects.aget(id=token_id)
+        print(f"✅ Background task started for {token_object.symbol} (ID: {token_id}). Starting monitoring...")
+        
+        sell_signature, combined_log = await collect_data_for_watchlist_coin(
+            token_object, public_key, private_key, rpc_url
+        )
+        
+        print(f"📧 Monitoring for {token_object.symbol} finished. Preparing final email report...")
+        await send_trade_notification_email(token_object, buy_signature, sell_signature, combined_log)
+
+    except Token.DoesNotExist:
+        print(f"🚨 CRITICAL: Background task failed to find Token with ID {token_id}. Cannot monitor or report.")
+    except Exception as e:
+        print(f"🚨 An unexpected error occurred in the background task for token ID {token_id}: {e}")
+
 
 async def execute_trade_strategy(token_websocket_data, public_key, private_key, rpc_url):
     """Handles the entire lifecycle for a watchlist token: buy -> monitor -> sell -> report."""
