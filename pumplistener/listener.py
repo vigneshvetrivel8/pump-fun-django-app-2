@@ -3101,6 +3101,905 @@
 
 # pumplistener/listener.py
 
+# import asyncio
+# import websockets
+# import json
+# import os
+# import httpx
+# from asgiref.sync import sync_to_async
+# from datetime import datetime, timedelta
+
+# from django.utils import timezone
+# from django.core.mail import send_mail
+# from django.template.loader import render_to_string
+# from django.conf import settings
+# from dotenv import load_dotenv
+
+# from .models import Token, TokenDataPoint
+# from . import trade
+# # from . import trade4
+
+# import collections
+
+# # --- Load Environment Variables ---
+# load_dotenv()
+
+# # --- CONFIGURATION ---
+# PUMPORTAL_WSS = "wss://pumpportal.fun/api/data"
+# HELIUS_API_KEY = os.environ.get('HELIUS_API_KEY')
+# HELIUS_RPC_URL = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
+# PUBLIC_KEY = os.getenv("WALLET_PUBLIC_KEY")
+# PRIVATE_KEY = os.getenv("WALLET_PRIVATE_KEY")
+# RPC_URL = os.getenv("RPC_URL")
+# watchlist_str = os.environ.get('CREATOR_WATCHLIST', '')
+# # WATCHLIST_CREATORS = set(filter(None, watchlist_str.split(',')))
+# WATCHLIST_CREATORS = set(watchlist_str.split(','))
+# moralis_keys_str = os.environ.get('MORALIS_API_KEYS', '')
+# MORALIS_API_KEYS = [key.strip() for key in moralis_keys_str.split(',') if key.strip()]
+# if not MORALIS_API_KEYS:
+#     raise ValueError("🚨 No Moralis API keys found. Please set MORALIS_API_KEYS in .env file.")
+# print(f"✅ Loaded {len(MORALIS_API_KEYS)} Moralis API keys.")
+# moralis_key_lock = asyncio.Lock()
+# current_moralis_key_index = 0
+
+# # --- HELPER & API FUNCTIONS ---
+# async def get_next_moralis_key():
+#     """Gets the next Moralis API key from the list in a task-safe way."""
+#     global current_moralis_key_index
+#     async with moralis_key_lock:
+#         key = MORALIS_API_KEYS[current_moralis_key_index]
+#         current_moralis_key_index = (current_moralis_key_index + 1) % len(MORALIS_API_KEYS)
+#         return key
+
+# @sync_to_async
+# def save_token_to_db(token_data):
+#     """Saves token data to the database, getting or creating the token."""
+#     token, created = Token.objects.get_or_create(
+#         mint_address=token_data['mint_address'],
+#         defaults=token_data
+#     )
+    
+#     # if created:
+#         # print(f"✅ Saved to DB: {token.name} ({token.symbol})")
+
+#     return token
+
+# @sync_to_async
+# def save_data_point(token: Token, api_data: dict):
+#     """MODIFIED: Saves a new data point and returns the created object."""
+#     data_point = TokenDataPoint.objects.create(token=token, data=api_data)
+#     print(f"💾 Saved data point for {token.symbol}: {api_data.get('source')}")
+#     return data_point
+
+# @sync_to_async
+# def send_trade_notification_email(token, buy_sig, sell_sig, combined_log):
+#     # The parameter name is updated here as well
+#     recipient_email = os.environ.get('REPORT_RECIPIENT_EMAIL')
+#     if not recipient_email:
+#         print("⚠️ Cannot send trade notification, REPORT_RECIPIENT_EMAIL not set.")
+#         return
+
+#     print(f"📧 Preparing trade notification email for {token.symbol}...")
+#     try:
+#         subject = f"Watchlist Trade Alert: ${token.symbol}"
+#         html_message = render_to_string('pumplistener/trade_notification_email.html', {
+#             'token': token, 
+#             'buy_sig': buy_sig, 
+#             'sell_sig': sell_sig,
+#             'combined_log': combined_log, # Pass the new log to the template
+#         })
+#         send_mail(
+#             subject=subject, message="This email requires an HTML-compatible client.",
+#             from_email=settings.DEFAULT_FROM_EMAIL, recipient_list=[recipient_email],
+#             html_message=html_message
+#         )
+#         print(f"✅ Trade notification for ${token.symbol} sent to {recipient_email}")
+#     except Exception as e:
+#         print(f"🚨 Failed to send trade notification email: {e}")
+
+# # @sync_to_async
+# # def send_trade_notification_email(token, buy_sig, sell_sig, sell_reason, sell_trigger_timestamp):
+# #     recipient_email = os.environ.get('REPORT_RECIPIENT_EMAIL')
+# #     if not recipient_email:
+# #         print("⚠️ Cannot send trade notification, REPORT_RECIPIENT_EMAIL not set.")
+# #         return
+
+# #     print(f"📧 Preparing trade notification email for {token.symbol}...")
+# #     subject = f"Watchlist Trade Alert: ${token.symbol}"
+# #     html_message = render_to_string('pumplistener/trade_notification_email.html', {
+# #         'token': token, 'buy_sig': buy_sig, 'sell_sig': sell_sig,
+# #         'sell_reason': sell_reason, 'sell_trigger_timestamp': sell_trigger_timestamp
+# #     })
+    
+# #     try:
+# #         send_mail(
+# #             subject, "A trade was executed for a token on your watchlist.",
+# #             settings.DEFAULT_FROM_EMAIL, [recipient_email], html_message=html_message
+# #         )
+# #         print(f"✅ Trade notification for ${token.symbol} sent to {recipient_email}")
+# #     except Exception as e:
+# #         print(f"🚨 Failed to send trade notification email: {e}")
+
+# async def get_helius_top_holders_count(mint_address: str):
+#     """Fetches the top 20 largest accounts from Helius."""
+#     payload = {"jsonrpc": "2.0", "id": "helius-v1", "method": "getTokenLargestAccounts", "params": [mint_address]}
+#     async with httpx.AsyncClient() as client:
+#         try:
+#             response = await client.post(HELIUS_RPC_URL, json=payload, timeout=10)
+#             response.raise_for_status()
+#             return {"source": "helius_getTokenLargestAccounts", "data": response.json()}
+#         except Exception as e:
+#             print(f"🚨 Error fetching from Helius: {e}")
+#             return {"source": "helius_getTokenLargestAccounts", "error": str(e)}
+
+# async def get_moralis_metadata(mint_address: str):
+#     """Fetches metadata including FDV from Moralis using key rotation."""
+#     url = f"https://solana-gateway.moralis.io/token/mainnet/{mint_address}/metadata"
+#     api_key = await get_next_moralis_key()
+#     headers = {"Accept": "application/json", "X-API-Key": api_key}
+#     async with httpx.AsyncClient() as client:
+#         try:
+#             response = await client.get(url, headers=headers)
+#             response.raise_for_status()
+#             return {"source": "moralis_metadata", "data": response.json()}
+#         except Exception as e:
+#             print(f"🚨 Error fetching from Moralis (Metadata) with key ending in ...{api_key[-4:]}: {e}")
+#             return {"source": "mora3lis_metadata", "error": str(e)}
+
+# async def get_moralis_holder_stats(mint_address: str):
+#     """Fetches detailed holder statistics from Moralis using key rotation."""
+#     url = f"https://solana-gateway.moralis.io/token/mainnet/holders/{mint_address}"
+#     api_key = await get_next_moralis_key()
+#     headers = {"Accept": "application/json", "X-API-Key": api_key}
+#     async with httpx.AsyncClient() as client:
+#         try:
+#             response = await client.get(url, headers=headers)
+#             response.raise_for_status()
+#             return {"source": "moralis_holder_stats", "data": response.json()}
+#         except Exception as e:
+#             print(f"🚨 Error fetching from Moralis (Holders) with key ending in ...{api_key[-4:]}: {e}")
+#             return {"source": "moralis_holder_stats", "error": str(e)}
+
+# # async def refresh_token_state(token: Token):
+# #     """MODIFIED: Returns the two data point objects it creates."""
+# #     try:
+# #         metadata, holders = await asyncio.gather(
+# #             get_moralis_metadata(token.mint_address),
+# #             get_moralis_holder_stats(token.mint_address)
+# #         )
+# #         # Capture the returned data point objects
+# #         metadata_point = await save_data_point(token, metadata)
+# #         holders_point = await save_data_point(token, holders)
+
+# #         if 'error' in metadata or 'error' in holders:
+# #             print(f"  -> Skipping state update for {token.symbol} due to API error.")
+# #             # Still return the points so they can be logged in the email
+# #             return metadata_point, holders_point
+
+# #         current_mc_str = metadata.get('data', {}).get('fullyDilutedValue')
+# #         current_holders_str = holders.get('data', {}).get('totalHolders')
+
+# #         if current_mc_str and current_holders_str is not None:
+# #             current_mc = float(current_mc_str)
+# #             current_holders = int(current_holders_str)
+
+# #             @sync_to_async
+# #             def update_db():
+# #                 t = Token.objects.select_for_update().get(pk=token.pk)
+# #                 t.current_market_cap = current_mc
+# #                 t.current_holder_count = current_holders
+# #                 if not t.initial_market_cap:
+# #                     t.initial_market_cap = current_mc
+# #                 if not t.highest_market_cap or current_mc > t.highest_market_cap:
+# #                     t.highest_market_cap = current_mc
+# #                 if not t.peak_holder_count or current_holders > t.peak_holder_count:
+# #                     t.peak_holder_count = current_holders
+# #                 t.save()
+            
+# #             await update_db()
+# #             print(f"  -> Refreshed data for {token.symbol}: MC=${current_mc}, Holders={current_holders}")
+        
+# #         # Return the created database objects
+# #         return metadata_point, holders_point
+# #     except Exception as e:
+# #         print(f"  -> Could not parse API data during refresh for {token.symbol}: {e}")
+# #         return None, None
+
+# # pumplistener/listener.py
+
+# async def refresh_token_state(token: Token):
+#     """MODIFIED: Returns the two data point objects it creates."""
+#     try:
+#         metadata, holders = await asyncio.gather(
+#             get_moralis_metadata(token.mint_address),
+#             get_moralis_holder_stats(token.mint_address)
+#         )
+#         metadata_point = await save_data_point(token, metadata)
+#         holders_point = await save_data_point(token, holders)
+
+#         if 'error' in metadata or 'error' in holders:
+#             print(f"  -> Skipping state update for {token.symbol} due to API error.")
+#             return metadata_point, holders_point
+
+#         current_mc_str = metadata.get('data', {}).get('fullyDilutedValue')
+#         current_holders_str = holders.get('data', {}).get('totalHolders')
+
+#         if current_mc_str and current_holders_str is not None:
+#             current_mc = float(current_mc_str)
+#             current_holders = int(current_holders_str)
+
+#             @sync_to_async
+#             def update_db():
+#                 # #### START OF FIX ####
+#                 # Removed .select_for_update() to resolve the transaction error.
+#                 t = Token.objects.get(pk=token.pk)
+#                 # #### END OF FIX ####
+                
+#                 t.current_market_cap = current_mc
+#                 t.current_holder_count = current_holders
+#                 if not t.initial_market_cap:
+#                     t.initial_market_cap = current_mc
+#                 if not t.highest_market_cap or current_mc > t.highest_market_cap:
+#                     t.highest_market_cap = current_mc
+#                 if not t.peak_holder_count or current_holders > t.peak_holder_count:
+#                     t.peak_holder_count = current_holders
+#                 t.save()
+            
+#             await update_db()
+#             print(f"  -> Refreshed data for {token.symbol}: MC=${current_mc}, Holders={current_holders}")
+        
+#         return metadata_point, holders_point
+#     except Exception as e:
+#         print(f"  -> Could not parse API data during refresh for {token.symbol}: {e}")
+#         return None, None
+
+# async def collect_data_for_watchlist_coin(token: Token):
+#     """
+#     REBUILT: Creates a combined log of data points and decisions for each time check.
+#     """
+#     print(f"📊 Starting 45-SECOND TEST monitoring for {token.symbol}...")
+    
+#     # This will be our new, structured log
+#     combined_log = []
+#     holder_history = collections.deque(maxlen=4)
+
+#     for i in range(40):
+#     # 0000000000000000000000000000000000000000000000000000000000000000000000000
+#     # for i in range(3):
+#     # 0000000000000000000000000000000000000000000000000000000000000000000000000
+#         await asyncio.sleep(15)
+#         check_time = (i + 1) * 15
+#         print(f"  -> [{token.symbol}] Running T+{check_time}s check...")
+        
+#         # Capture the data points created during the refresh
+#         metadata_point, holders_point = await refresh_token_state(token)
+#         refreshed_token = await Token.objects.aget(pk=token.pk)
+        
+#         if refreshed_token.current_holder_count is not None:
+#             holder_history.append(refreshed_token.current_holder_count)
+
+#         current_reason = None
+#         # --- Sell condition logic (remains the same) ---
+#         if (i == 1 and refreshed_token.current_holder_count is not None and refreshed_token.current_market_cap is not None
+#                 and refreshed_token.current_holder_count < 12 and refreshed_token.current_market_cap < 12000):
+#             current_reason = f"Failed 30-Second Viability Gate. Holders: {refreshed_token.current_holder_count}, MC: ${refreshed_token.current_market_cap:,.2f}"
+#         elif refreshed_token.current_market_cap is not None and refreshed_token.current_market_cap < 12000:
+#             current_reason = f"Absolute Market Cap Stop-Loss (< $12k). Holders: {refreshed_token.current_holder_count}, MC: ${refreshed_token.current_market_cap:,.2f}"
+#         # ... (other elif conditions remain the same) ...
+#         elif (refreshed_token.highest_market_cap is not None and refreshed_token.current_market_cap is not None
+#               and refreshed_token.current_market_cap < (refreshed_token.highest_market_cap * 0.55)):
+#             current_reason = f"Trailing MC Stop-Loss (>45% drop from peak of ${refreshed_token.highest_market_cap:,.2f}). Holders: {refreshed_token.current_holder_count}"
+#         elif (refreshed_token.peak_holder_count is not None and refreshed_token.current_holder_count is not None
+#               and refreshed_token.current_holder_count < (refreshed_token.peak_holder_count * 0.60)):
+#             current_reason = f"Peak Holder Stop-Loss (>40% drop from peak of {refreshed_token.peak_holder_count}). Holders: {refreshed_token.current_holder_count}"
+#         elif len(holder_history) >= 4:
+#             lowest_in_last_3 = min(list(holder_history)[:3])
+#             if refreshed_token.current_holder_count < (lowest_in_last_3 * 0.75):
+#                 current_reason = f"Rapid Holder Decline (>25% drop from recent low of {lowest_in_last_3}). Holders: {refreshed_token.current_holder_count}"
+
+#         # --- Create the decision dictionary ---
+#         if current_reason:
+#             print(f"  -> 🚨 SIMULATION: SELL {refreshed_token.symbol} | Reason: {current_reason}")
+#             decision = {"action": "SELL", "reason": current_reason}
+#         else:
+#             print(f"  -> ✅ SIMULATION: HOLD {refreshed_token.symbol}")
+#             mc_display = f"${refreshed_token.current_market_cap:,.2f}" if refreshed_token.current_market_cap is not None else "N/A"
+#             holders_display = refreshed_token.current_holder_count if refreshed_token.current_holder_count is not None else "N/A"
+#             reason_text = f"All checks passed. MC: {mc_display}, Holders: {holders_display}"
+#             decision = {"action": "HOLD", "reason": reason_text}
+        
+#         # --- Append the combined data for this check to our new log ---
+#         if metadata_point: # Ensure data points were created
+#             combined_log.append({
+#                 "timestamp": metadata_point.timestamp,
+#                 "metadata_point": metadata_point,
+#                 "holders_point": holders_point,
+#                 "decision": decision
+#             })
+            
+#     print(f"✅ Finished 45-second test monitoring for {token.symbol}")
+#     return combined_log
+
+# async def run_trade_cycle(public_key, private_key, mint_address, rpc_url):
+#     """A dedicated async function just for the buy/sell logic."""
+#     # buy_sig = await asyncio.to_thread(trade3.buy, public_key, private_key, mint_address, rpc_url)
+#     # The new trade.buy is async, so we call it directly with await!
+#     buy_sig = await trade.buy(public_key, private_key, mint_address, rpc_url)
+#     buy_time = timezone.now() + timedelta(hours=5, minutes=30)
+#     print(f"\n--- Waiting 1.5 seconds before selling ---\n")
+#     await asyncio.sleep(1.5)
+#     # sell_sig = await asyncio.to_thread(trade.sell, public_key, private_key, mint_address, rpc_url)
+#     sell_sig = await asyncio.to_thread(trade.sell, public_key, private_key, mint_address, rpc_url)
+#     return buy_sig, sell_sig, buy_time
+
+# async def monitor_and_report(token_object, buy_signature, sell_signature):
+#     print(f"✅ Trade complete for {token_object.symbol}. Starting post-trade actions in the background...")
+#     # The variable name is updated to reflect the new structure
+#     combined_log = await collect_data_for_watchlist_coin(token_object)
+#     await send_trade_notification_email(token_object, buy_signature, sell_signature, combined_log)
+
+# async def execute_trade_strategy(token_websocket_data, public_key, private_key, rpc_url):
+#     """Handles the entire lifecycle for a watchlist token."""
+#     mint_address = token_websocket_data.get('mint')
+#     if not mint_address:
+#         return
+    
+#     trade_task = asyncio.create_task(run_trade_cycle(public_key, private_key, mint_address, rpc_url))
+#     print(f"📈 Watchlist hit for {token_websocket_data.get('symbol')}. Firing trade task immediately...")
+
+#     # --- TRADING DISABLED FOR TEST ---
+#     # buy_signature, sell_signature, buy_timestamp = await run_trade_cycle(public_key, private_key, mint_address, rpc_url)
+#     # 2. Await the trade task to complete. This gives you the signatures and timestamp.
+#     buy_signature, sell_signature, buy_timestamp = await trade_task
+    
+    
+#     token_db_data = {
+#         'timestamp': timezone.now() + timedelta(hours=5, minutes=30), # Correct UTC timestamp
+#         'name': token_websocket_data.get('name', 'N/A'), 
+#         'symbol': token_websocket_data.get('symbol', 'N/A'),
+#         'mint_address': mint_address,
+#         'sol_amount': token_websocket_data.get('solAmount') or 0,
+#         'creator_address': token_websocket_data.get('traderPublicKey', 'N/A'),
+#         'pump_fun_link': f"https://pump.fun/{mint_address}",
+#         'is_from_watchlist': True,
+#         'buy_timestamp': buy_timestamp
+#     }
+
+#     # 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000    
+#     # --- Execute Trade and DB Save in Parallel ---
+#     db_save_task = asyncio.create_task(save_token_to_db(token_db_data))
+#     trade_signatures = await trade_task
+#     token_object = await db_save_task
+    
+#     # This will now work correctly without a ValueError
+#     buy_signature, sell_signature, buy_timestamp = trade_signatures
+
+#     if token_object:
+#         if buy_signature:
+#             token_object.buy_timestamp = buy_timestamp
+#             await token_object.asave()
+
+#         # --- Fire and forget the long-running monitoring and reporting task ---
+#         # This function now exits immediately, keeping the main listener free.
+#         asyncio.create_task(
+#             monitor_and_report(token_object, buy_signature, sell_signature)
+#         )
+#     else:
+#         print(f"🚨 Could not start post-trade actions for {mint_address} because token object was not saved.")
+#         # Update token with the buy timestamp
+#     # if buy_signature:
+#     #     token_object.buy_timestamp = buy_timestamp
+#     #     await token_object.asave()
+
+#     # # --- Fire and forget the long-running monitoring and reporting task ---
+#     # asyncio.create_task(
+#     #     monitor_and_report(token_object, buy_signature, sell_signature)
+#     # )
+#     # ---------------------------------------------------------------------------------------------------------------------
+
+#     # token_object = await save_token_to_db(token_db_data)
+
+#     # if token_object:
+#     #     asyncio.create_task(monitor_and_report(token_object, buy_signature, sell_signature))
+#     # 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+
+# # --- MAIN LISTENER LOOP ---
+# async def pump_fun_listener():
+#     print("🎧 Starting Pump.fun WebSocket listener...")
+#     async for websocket in websockets.connect(PUMPORTAL_WSS):
+#         try:
+#             await websocket.send(json.dumps({"method": "subscribeNewToken"}))
+#             print("✅ WebSocket Connected and Subscribed.")
+#             # --- TEMPORARY TEST FLAG ---
+#             # 0000000000000000000000000000000000000000
+#             # has_triggered_test = False
+#             # 00000000000000000000000000000000000000000
+#             while True:
+#                 message = await websocket.recv()
+#                 data = json.loads(message)
+#                 if data and data.get('txType') == 'create':
+#                     creator_address = data.get('traderPublicKey', 'N/A')
+                    
+#                     if creator_address in WATCHLIST_CREATORS:
+#                     # 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+#                     # if not has_triggered_test:
+#                     #     has_triggered_test = True # Set flag so it only runs once
+#                     # 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+#                         ############################################################################################
+#                         # If it's a watchlist token, start the entire non-blocking strategy.
+#                         asyncio.create_task(
+#                             execute_trade_strategy(data, PUBLIC_KEY, PRIVATE_KEY, RPC_URL)
+#                         )
+#                         ############################################################################################
+#                         # TO Disable trading, we may comment out the above section, and execute only data saving below.
+#                             # --- Add this logic to save the token and start data collection ---
+#                         # token_data = {
+#                         #     'timestamp': timezone.now() + timedelta(hours=5, minutes=30),
+#                         #     'name': data.get('name', 'N/A'),
+#                         #     'symbol': data.get('symbol', 'N/A'),
+#                         #     'mint_address': data.get('mint', 'N/A'),
+#                         #     'sol_amount': data.get('solAmount') or 0,
+#                         #     'creator_address': creator_address,
+#                         #     'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
+#                         #     'is_from_watchlist': True # Still mark it as a watchlist token
+#                         # }
+                        
+#                         # token_object = await save_token_to_db(token_data)
+
+#                         # 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+#                         # await collect_data_for_watchlist_coin(token_object)
+#                         # await send_trade_notification_email(token_object, "N/A", "N/A")
+#                         # 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+
+                        
+#                         # if token_object:
+#                         #     # Start the 5-minute data collection without trading
+#                         #     asyncio.create_task(collect_data_for_watchlist_coin(token_object))
+#                         ############################################################################################
+#                     else:
+#                         # If it's NOT a watchlist token, just save it to the database.
+#                         token_data = {
+#                             # 'timestamp': timezone.now(),
+#                             'timestamp': timezone.now() + timedelta(hours=5, minutes=30),
+#                             'name': data.get('name', 'N/A'),
+#                             'symbol': data.get('symbol', 'N/A'),
+#                             'mint_address': data.get('mint', 'N/A'),
+#                             # 'sol_amount': data.get('solAmount', 0),
+#                             'sol_amount': data.get('solAmount') or 0, # <-- APPLY FIX HERE
+#                             'creator_address': creator_address,
+#                             'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
+#                             'is_from_watchlist': False
+#                         }
+#                         await save_token_to_db(token_data)
+#         except websockets.ConnectionClosed:
+#             print("⚠️ WebSocket connection closed. Reconnecting in 5 seconds...")
+#             await asyncio.sleep(5)
+#         except Exception as e:
+#             print(f"💥 Main listener error: {e}. Reconnecting in 5 seconds...")
+#             await asyncio.sleep(5)
+
+# def run_listener_in_new_loop():
+#     """Wrapper to run the async listener in a new asyncio event loop."""
+#     asyncio.run(pump_fun_listener())
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##############################################################################################################################################################
+
+
 import asyncio
 import websockets
 import json
@@ -3116,8 +4015,8 @@ from django.conf import settings
 from dotenv import load_dotenv
 
 from .models import Token, TokenDataPoint
-# from . import trade
-from . import trade4
+from . import trade
+# from . import trade4
 
 import collections
 
@@ -3158,9 +4057,6 @@ def save_token_to_db(token_data):
         mint_address=token_data['mint_address'],
         defaults=token_data
     )
-    
-    # if created:
-        # print(f"✅ Saved to DB: {token.name} ({token.symbol})")
 
     return token
 
@@ -3197,28 +4093,6 @@ def send_trade_notification_email(token, buy_sig, sell_sig, combined_log):
     except Exception as e:
         print(f"🚨 Failed to send trade notification email: {e}")
 
-# @sync_to_async
-# def send_trade_notification_email(token, buy_sig, sell_sig, sell_reason, sell_trigger_timestamp):
-#     recipient_email = os.environ.get('REPORT_RECIPIENT_EMAIL')
-#     if not recipient_email:
-#         print("⚠️ Cannot send trade notification, REPORT_RECIPIENT_EMAIL not set.")
-#         return
-
-#     print(f"📧 Preparing trade notification email for {token.symbol}...")
-#     subject = f"Watchlist Trade Alert: ${token.symbol}"
-#     html_message = render_to_string('pumplistener/trade_notification_email.html', {
-#         'token': token, 'buy_sig': buy_sig, 'sell_sig': sell_sig,
-#         'sell_reason': sell_reason, 'sell_trigger_timestamp': sell_trigger_timestamp
-#     })
-    
-#     try:
-#         send_mail(
-#             subject, "A trade was executed for a token on your watchlist.",
-#             settings.DEFAULT_FROM_EMAIL, [recipient_email], html_message=html_message
-#         )
-#         print(f"✅ Trade notification for ${token.symbol} sent to {recipient_email}")
-#     except Exception as e:
-#         print(f"🚨 Failed to send trade notification email: {e}")
 
 async def get_helius_top_holders_count(mint_address: str):
     """Fetches the top 20 largest accounts from Helius."""
@@ -3259,53 +4133,6 @@ async def get_moralis_holder_stats(mint_address: str):
         except Exception as e:
             print(f"🚨 Error fetching from Moralis (Holders) with key ending in ...{api_key[-4:]}: {e}")
             return {"source": "moralis_holder_stats", "error": str(e)}
-
-# async def refresh_token_state(token: Token):
-#     """MODIFIED: Returns the two data point objects it creates."""
-#     try:
-#         metadata, holders = await asyncio.gather(
-#             get_moralis_metadata(token.mint_address),
-#             get_moralis_holder_stats(token.mint_address)
-#         )
-#         # Capture the returned data point objects
-#         metadata_point = await save_data_point(token, metadata)
-#         holders_point = await save_data_point(token, holders)
-
-#         if 'error' in metadata or 'error' in holders:
-#             print(f"  -> Skipping state update for {token.symbol} due to API error.")
-#             # Still return the points so they can be logged in the email
-#             return metadata_point, holders_point
-
-#         current_mc_str = metadata.get('data', {}).get('fullyDilutedValue')
-#         current_holders_str = holders.get('data', {}).get('totalHolders')
-
-#         if current_mc_str and current_holders_str is not None:
-#             current_mc = float(current_mc_str)
-#             current_holders = int(current_holders_str)
-
-#             @sync_to_async
-#             def update_db():
-#                 t = Token.objects.select_for_update().get(pk=token.pk)
-#                 t.current_market_cap = current_mc
-#                 t.current_holder_count = current_holders
-#                 if not t.initial_market_cap:
-#                     t.initial_market_cap = current_mc
-#                 if not t.highest_market_cap or current_mc > t.highest_market_cap:
-#                     t.highest_market_cap = current_mc
-#                 if not t.peak_holder_count or current_holders > t.peak_holder_count:
-#                     t.peak_holder_count = current_holders
-#                 t.save()
-            
-#             await update_db()
-#             print(f"  -> Refreshed data for {token.symbol}: MC=${current_mc}, Holders={current_holders}")
-        
-#         # Return the created database objects
-#         return metadata_point, holders_point
-#     except Exception as e:
-#         print(f"  -> Could not parse API data during refresh for {token.symbol}: {e}")
-#         return None, None
-
-# pumplistener/listener.py
 
 async def refresh_token_state(token: Token):
     """MODIFIED: Returns the two data point objects it creates."""
@@ -3353,25 +4180,28 @@ async def refresh_token_state(token: Token):
         print(f"  -> Could not parse API data during refresh for {token.symbol}: {e}")
         return None, None
 
-async def collect_data_for_watchlist_coin(token: Token):
+# In pumplistener/listener.py
+
+async def collect_data_for_watchlist_coin(token: Token, public_key: str, private_key: str, rpc_url: str):
     """
-    REBUILT: Creates a combined log of data points and decisions for each time check.
+    Monitors a token post-buy, executes a sell based on rules, and logs all actions.
+    Includes a final sell at the end of the monitoring period if not already sold.
     """
-    print(f"📊 Starting 45-SECOND TEST monitoring for {token.symbol}...")
+    print(f"📊 Starting HIGH-FREQUENCY monitoring for {token.symbol}...")
     
-    # This will be our new, structured log
     combined_log = []
     holder_history = collections.deque(maxlen=4)
+    sell_signature = None # This will hold the signature if a sell occurs
 
+    # Monitor for up to 10 minutes (40 checks x 15 seconds)
     for i in range(40):
-    # 0000000000000000000000000000000000000000000000000000000000000000000000000
+    # 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
     # for i in range(3):
-    # 0000000000000000000000000000000000000000000000000000000000000000000000000
+    # 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
         await asyncio.sleep(15)
         check_time = (i + 1) * 15
         print(f"  -> [{token.symbol}] Running T+{check_time}s check...")
         
-        # Capture the data points created during the refresh
         metadata_point, holders_point = await refresh_token_state(token)
         refreshed_token = await Token.objects.aget(pk=token.pk)
         
@@ -3379,129 +4209,144 @@ async def collect_data_for_watchlist_coin(token: Token):
             holder_history.append(refreshed_token.current_holder_count)
 
         current_reason = None
-        # --- Sell condition logic (remains the same) ---
+        # --- Sell Strategy Rules (No changes here) ---
         if (i == 1 and refreshed_token.current_holder_count is not None and refreshed_token.current_market_cap is not None
                 and refreshed_token.current_holder_count < 12 and refreshed_token.current_market_cap < 12000):
             current_reason = f"Failed 30-Second Viability Gate. Holders: {refreshed_token.current_holder_count}, MC: ${refreshed_token.current_market_cap:,.2f}"
         elif refreshed_token.current_market_cap is not None and refreshed_token.current_market_cap < 12000:
-            current_reason = f"Absolute Market Cap Stop-Loss (< $12k). Holders: {refreshed_token.current_holder_count}, MC: ${refreshed_token.current_market_cap:,.2f}"
-        # ... (other elif conditions remain the same) ...
+            current_reason = f"Absolute Market Cap Stop-Loss (< $12k). MC: ${refreshed_token.current_market_cap:,.2f}"
         elif (refreshed_token.highest_market_cap is not None and refreshed_token.current_market_cap is not None
               and refreshed_token.current_market_cap < (refreshed_token.highest_market_cap * 0.55)):
-            current_reason = f"Trailing MC Stop-Loss (>45% drop from peak of ${refreshed_token.highest_market_cap:,.2f}). Holders: {refreshed_token.current_holder_count}"
+            current_reason = f"Trailing MC Stop-Loss (>45% drop from peak of ${refreshed_token.highest_market_cap:,.2f})."
         elif (refreshed_token.peak_holder_count is not None and refreshed_token.current_holder_count is not None
               and refreshed_token.current_holder_count < (refreshed_token.peak_holder_count * 0.60)):
-            current_reason = f"Peak Holder Stop-Loss (>40% drop from peak of {refreshed_token.peak_holder_count}). Holders: {refreshed_token.current_holder_count}"
+            current_reason = f"Peak Holder Stop-Loss (>40% drop from peak of {refreshed_token.peak_holder_count})."
         elif len(holder_history) >= 4:
             lowest_in_last_3 = min(list(holder_history)[:3])
             if refreshed_token.current_holder_count < (lowest_in_last_3 * 0.75):
-                current_reason = f"Rapid Holder Decline (>25% drop from recent low of {lowest_in_last_3}). Holders: {refreshed_token.current_holder_count}"
+                current_reason = f"Rapid Holder Decline (>25% drop from recent low of {lowest_in_last_3})."
 
-        # --- Create the decision dictionary ---
+        decision = {}
         if current_reason:
-            print(f"  -> 🚨 SIMULATION: SELL {refreshed_token.symbol} | Reason: {current_reason}")
-            decision = {"action": "SELL", "reason": current_reason}
+            print(f"  -> 🚨 SELL TRIGGERED for {refreshed_token.symbol} | Reason: {current_reason}")
+            sell_signature = await asyncio.to_thread(
+                trade.sell, public_key, private_key, refreshed_token.mint_address, rpc_url
+            )
+            
+            if sell_signature:
+                print(f"  -> ✅ SELL SUCCESSFUL for {token.symbol}.")
+                decision = {"action": "SELL", "reason": current_reason, "signature": sell_signature}
+            else:
+                print(f"  -> ❌ SELL FAILED for {token.symbol}.")
+                decision = {"action": "SELL_FAILED", "reason": current_reason}
+            
+            if metadata_point:
+                combined_log.append({
+                    "timestamp": metadata_point.timestamp, "metadata_point": metadata_point, 
+                    "holders_point": holders_point, "decision": decision
+                })
+            break # Exit monitoring loop after sell attempt
         else:
-            print(f"  -> ✅ SIMULATION: HOLD {refreshed_token.symbol}")
+            print(f"  -> ✅ HOLD {refreshed_token.symbol}")
             mc_display = f"${refreshed_token.current_market_cap:,.2f}" if refreshed_token.current_market_cap is not None else "N/A"
             holders_display = refreshed_token.current_holder_count if refreshed_token.current_holder_count is not None else "N/A"
-            reason_text = f"All checks passed. MC: {mc_display}, Holders: {holders_display}"
-            decision = {"action": "HOLD", "reason": reason_text}
-        
-        # --- Append the combined data for this check to our new log ---
-        if metadata_point: # Ensure data points were created
+            decision = {"action": "HOLD", "reason": f"All checks passed. MC: {mc_display}, Holders: {holders_display}"}
+
+        if metadata_point:
             combined_log.append({
-                "timestamp": metadata_point.timestamp,
-                "metadata_point": metadata_point,
-                "holders_point": holders_point,
-                "decision": decision
+                "timestamp": metadata_point.timestamp, "metadata_point": metadata_point, 
+                "holders_point": holders_point, "decision": decision
             })
+    
+    print(f"✅ Finished high-frequency monitoring loop for {token.symbol}")
+
+    # #### START OF NEW LOGIC ####
+    # If the loop finished and the sell_signature is still None, it means
+    # no sell rule was triggered. We sell it now because the time is up.
+    if not sell_signature:
+        print(f"  -> ⏰ TIME STOP: Monitoring period ended for {token.symbol}. Executing final sell.")
+        sell_signature = await asyncio.to_thread(
+            trade.sell, public_key, private_key, token.mint_address, rpc_url
+        )
+        
+        reason = "End of 10-minute monitoring period (Time Stop)"
+        decision = {}
+        if sell_signature:
+            print(f"  -> ✅ TIME STOP SELL SUCCESSFUL.")
+            decision = {"action": "SELL", "reason": reason, "signature": sell_signature}
+        else:
+            print(f"  -> ❌ TIME STOP SELL FAILED.")
+            decision = {"action": "SELL_FAILED", "reason": reason}
+
+        # Add this final decision to the log for the email report
+        combined_log.append({
+            "timestamp": timezone.now(),
+            "metadata_point": None, # No new data points for this action
+            "holders_point": None,
+            "decision": decision
+        })
+    # #### END OF NEW LOGIC ####
             
-    print(f"✅ Finished 45-second test monitoring for {token.symbol}")
-    return combined_log
+    return sell_signature, combined_log
 
-async def run_trade_cycle(public_key, private_key, mint_address, rpc_url):
-    """A dedicated async function just for the buy/sell logic."""
-    # buy_sig = await asyncio.to_thread(trade3.buy, public_key, private_key, mint_address, rpc_url)
-    # The new trade.buy is async, so we call it directly with await!
-    buy_sig = await trade4.buy(public_key, private_key, mint_address, rpc_url)
-    buy_time = timezone.now() + timedelta(hours=5, minutes=30)
-    print(f"\n--- Waiting 1.5 seconds before selling ---\n")
-    await asyncio.sleep(1.5)
-    # sell_sig = await asyncio.to_thread(trade.sell, public_key, private_key, mint_address, rpc_url)
-    sell_sig = await asyncio.to_thread(trade4.sell, public_key, private_key, mint_address, rpc_url)
-    return buy_sig, sell_sig, buy_time
+# async def run_trade_cycle(public_key, private_key, mint_address, rpc_url):
+#     """A dedicated async function just for the buy/sell logic."""
+#     # buy_sig = await asyncio.to_thread(trade3.buy, public_key, private_key, mint_address, rpc_url)
+#     # The new trade.buy is async, so we call it directly with await!
+#     buy_sig = await trade.buy(public_key, private_key, mint_address, rpc_url)
+#     buy_time = timezone.now() + timedelta(hours=5, minutes=30)
+#     print(f"\n--- Waiting 1.5 seconds before selling ---\n")
+#     await asyncio.sleep(1.5)
+#     # sell_sig = await asyncio.to_thread(trade.sell, public_key, private_key, mint_address, rpc_url)
+#     sell_sig = await asyncio.to_thread(trade.sell, public_key, private_key, mint_address, rpc_url)
+#     return buy_sig, sell_sig, buy_time
 
-async def monitor_and_report(token_object, buy_signature, sell_signature):
-    print(f"✅ Trade complete for {token_object.symbol}. Starting post-trade actions in the background...")
-    # The variable name is updated to reflect the new structure
-    combined_log = await collect_data_for_watchlist_coin(token_object)
+async def monitor_and_report(token_object, buy_signature, public_key, private_key, rpc_url):
+    """Orchestrates the monitoring, selling, and final email reporting."""
+    print(f"✅ Buy complete for {token_object.symbol}. Starting post-trade monitoring...")
+    
+    sell_signature, combined_log = await collect_data_for_watchlist_coin(
+        token_object, public_key, private_key, rpc_url
+    )
+    
+    print(f"📧 Monitoring for {token_object.symbol} finished. Preparing final email report...")
     await send_trade_notification_email(token_object, buy_signature, sell_signature, combined_log)
 
 async def execute_trade_strategy(token_websocket_data, public_key, private_key, rpc_url):
-    """Handles the entire lifecycle for a watchlist token."""
+    """Handles the entire lifecycle for a watchlist token: buy -> monitor -> sell -> report."""
     mint_address = token_websocket_data.get('mint')
     if not mint_address:
+        print("🚨 Cannot execute trade, mint address is missing from websocket data.")
         return
-    
-    trade_task = asyncio.create_task(run_trade_cycle(public_key, private_key, mint_address, rpc_url))
-    print(f"📈 Watchlist hit for {token_websocket_data.get('symbol')}. Firing trade task immediately...")
 
-    # --- TRADING DISABLED FOR TEST ---
-    # buy_signature, sell_signature, buy_timestamp = await run_trade_cycle(public_key, private_key, mint_address, rpc_url)
-    # 2. Await the trade task to complete. This gives you the signatures and timestamp.
-    buy_signature, sell_signature, buy_timestamp = await trade_task
-    
-    
+    # 1. Execute the BUY transaction first.
+    print(f"📈 Watchlist hit for {token_websocket_data.get('symbol')}. Executing BUY immediately...")
+    buy_signature = await asyncio.to_thread(trade.buy, public_key, private_key, mint_address, rpc_url)
+    buy_timestamp = timezone.now()
+
+    if not buy_signature:
+        print(f"🚨 BUY FAILED for {mint_address}. Aborting strategy for this token.")
+        return
+
+    # 2. Save the initial token data to the database.
     token_db_data = {
-        'timestamp': timezone.now() + timedelta(hours=5, minutes=30), # Correct UTC timestamp
-        'name': token_websocket_data.get('name', 'N/A'), 
-        'symbol': token_websocket_data.get('symbol', 'N/A'),
-        'mint_address': mint_address,
+        'timestamp': buy_timestamp, 'name': token_websocket_data.get('name', 'N/A'),
+        'symbol': token_websocket_data.get('symbol', 'N/A'), 'mint_address': mint_address,
         'sol_amount': token_websocket_data.get('solAmount') or 0,
         'creator_address': token_websocket_data.get('traderPublicKey', 'N/A'),
-        'pump_fun_link': f"https://pump.fun/{mint_address}",
-        'is_from_watchlist': True,
+        'pump_fun_link': f"https://pump.fun/{mint_address}", 'is_from_watchlist': True,
         'buy_timestamp': buy_timestamp
     }
-
-    # 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000    
-    # --- Execute Trade and DB Save in Parallel ---
-    db_save_task = asyncio.create_task(save_token_to_db(token_db_data))
-    trade_signatures = await trade_task
-    token_object = await db_save_task
+    token_object = await save_token_to_db(token_db_data)
     
-    # This will now work correctly without a ValueError
-    buy_signature, sell_signature, buy_timestamp = trade_signatures
-
+    # 3. If the token was saved, start the background monitoring & selling task.
     if token_object:
-        if buy_signature:
-            token_object.buy_timestamp = buy_timestamp
-            await token_object.asave()
-
-        # --- Fire and forget the long-running monitoring and reporting task ---
-        # This function now exits immediately, keeping the main listener free.
+        print(f"✅ DB save complete for {token_object.symbol}. Firing background monitoring task.")
         asyncio.create_task(
-            monitor_and_report(token_object, buy_signature, sell_signature)
+            monitor_and_report(token_object, buy_signature, public_key, private_key, rpc_url)
         )
     else:
-        print(f"🚨 Could not start post-trade actions for {mint_address} because token object was not saved.")
-        # Update token with the buy timestamp
-    # if buy_signature:
-    #     token_object.buy_timestamp = buy_timestamp
-    #     await token_object.asave()
-
-    # # --- Fire and forget the long-running monitoring and reporting task ---
-    # asyncio.create_task(
-    #     monitor_and_report(token_object, buy_signature, sell_signature)
-    # )
-    # ---------------------------------------------------------------------------------------------------------------------
-
-    # token_object = await save_token_to_db(token_db_data)
-
-    # if token_object:
-    #     asyncio.create_task(monitor_and_report(token_object, buy_signature, sell_signature))
-    # 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+        print(f"🚨 Could not save token {mint_address} to DB. Cannot start monitoring.")
 
 # --- MAIN LISTENER LOOP ---
 async def pump_fun_listener():
