@@ -4180,24 +4180,22 @@ async def refresh_token_state(token: Token):
         print(f"  -> Could not parse API data during refresh for {token.symbol}: {e}")
         return None, None
 
-# In pumplistener/listener.py
-
 async def collect_data_for_watchlist_coin(token: Token, public_key: str, private_key: str, rpc_url: str):
     """
-    Monitors a token post-buy, executes a sell based on rules, and logs all actions.
-    Includes a final sell at the end of the monitoring period if not already sold.
+    Sells at the first trigger, then continues to monitor for the full
+    duration for post-trade analysis.
     """
-    print(f"📊 Starting HIGH-FREQUENCY monitoring for {token.symbol}...")
+    print(f"📊 Starting LIVE TRADE & POST-SELL monitoring for {token.symbol}...")
     
     combined_log = []
     holder_history = collections.deque(maxlen=4)
-    sell_signature = None # This will hold the signature if a sell occurs
+    sell_signature = None
+
+    # --- 1. INITIALIZE THE STATE FLAG ---
+    has_sold = False
 
     # Monitor for up to 10 minutes (40 checks x 15 seconds)
     for i in range(40):
-    # 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-    # for i in range(3):
-    # 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
         await asyncio.sleep(15)
         check_time = (i + 1) * 15
         print(f"  -> [{token.symbol}] Running T+{check_time}s check...")
@@ -4227,66 +4225,51 @@ async def collect_data_for_watchlist_coin(token: Token, public_key: str, private
                 current_reason = f"Rapid Holder Decline (>25% drop from recent low of {lowest_in_last_3})."
 
         decision = {}
-        if current_reason:
-            print(f"  -> 🚨 SELL TRIGGERED for {refreshed_token.symbol} | Reason: {current_reason}")
-            sell_signature = await asyncio.to_thread(
-                trade.sell, public_key, private_key, refreshed_token.mint_address, rpc_url
-            )
-            
-            if sell_signature:
-                print(f"  -> ✅ SELL SUCCESSFUL for {token.symbol}.")
-                decision = {"action": "SELL", "reason": current_reason, "signature": sell_signature}
+        
+        # --- 2. CHECK THE FLAG BEFORE DECIDING ACTION ---
+        if not has_sold:
+            # If we haven't sold yet, check the rules for a real trade
+            if current_reason:
+                print(f"  -> 🚨 SELL TRIGGERED for {refreshed_token.symbol} | Reason: {current_reason}")
+                temp_sell_sig = await asyncio.to_thread(
+                    trade.sell, public_key, private_key, refreshed_token.mint_address, rpc_url
+                )
+                
+                if temp_sell_sig:
+                    print(f"  -> ✅ SELL SUCCESSFUL for {token.symbol}. Now entering post-sell monitoring.")
+                    sell_signature = temp_sell_sig # Store the one real signature
+                    has_sold = True # <-- SET THE FLAG!
+                    decision = {"action": "SELL", "reason": current_reason, "signature": sell_signature}
+                else:
+                    print(f"  -> ❌ SELL FAILED for {token.symbol}.")
+                    decision = {"action": "SELL_FAILED", "reason": current_reason}
             else:
-                print(f"  -> ❌ SELL FAILED for {token.symbol}.")
-                decision = {"action": "SELL_FAILED", "reason": current_reason}
-            
-            if metadata_point:
-                combined_log.append({
-                    "timestamp": metadata_point.timestamp, "metadata_point": metadata_point, 
-                    "holders_point": holders_point, "decision": decision
-                })
-            break # Exit monitoring loop after sell attempt
+                # Still holding, log as normal
+                print(f"  -> ✅ HOLD {refreshed_token.symbol}")
+                mc_display = f"${refreshed_token.current_market_cap:,.2f}" if refreshed_token.current_market_cap is not None else "N/A"
+                holders_display = refreshed_token.current_holder_count if refreshed_token.current_holder_count is not None else "N/A"
+                decision = {"action": "HOLD", "reason": f"All checks passed. MC: {mc_display}, Holders: {holders_display}"}
         else:
-            print(f"  -> ✅ HOLD {refreshed_token.symbol}")
-            mc_display = f"${refreshed_token.current_market_cap:,.2f}" if refreshed_token.current_market_cap is not None else "N/A"
-            holders_display = refreshed_token.current_holder_count if refreshed_token.current_holder_count is not None else "N/A"
-            decision = {"action": "HOLD", "reason": f"All checks passed. MC: {mc_display}, Holders: {holders_display}"}
+            # If we have already sold, just run in simulation mode
+            if current_reason:
+                print(f"  -> ⚪️ POST-SELL SIMULATION: Would have sold again. Reason: {current_reason}")
+                decision = {"action": "SELL (SIMULATED)", "reason": current_reason}
+            else:
+                print(f"  -> ⚪️ POST-SELL SIMULATION: Would be holding.")
+                mc_display = f"${refreshed_token.current_market_cap:,.2f}" if refreshed_token.current_market_cap is not None else "N/A"
+                holders_display = refreshed_token.current_holder_count if refreshed_token.current_holder_count is not None else "N/A"
+                decision = {"action": "HOLD (POST-SELL)", "reason": f"All checks passed. MC: {mc_display}, Holders: {holders_display}"}
 
         if metadata_point:
             combined_log.append({
                 "timestamp": metadata_point.timestamp, "metadata_point": metadata_point, 
                 "holders_point": holders_point, "decision": decision
             })
-    
-    print(f"✅ Finished high-frequency monitoring loop for {token.symbol}")
-
-    # #### START OF NEW LOGIC ####
-    # If the loop finished and the sell_signature is still None, it means
-    # no sell rule was triggered. We sell it now because the time is up.
-    if not sell_signature:
-        print(f"  -> ⏰ TIME STOP: Monitoring period ended for {token.symbol}. Executing final sell.")
-        sell_signature = await asyncio.to_thread(
-            trade.sell, public_key, private_key, token.mint_address, rpc_url
-        )
         
-        reason = "End of 10-minute monitoring period (Time Stop)"
-        decision = {}
-        if sell_signature:
-            print(f"  -> ✅ TIME STOP SELL SUCCESSFUL.")
-            decision = {"action": "SELL", "reason": reason, "signature": sell_signature}
-        else:
-            print(f"  -> ❌ TIME STOP SELL FAILED.")
-            decision = {"action": "SELL_FAILED", "reason": reason}
-
-        # Add this final decision to the log for the email report
-        combined_log.append({
-            "timestamp": timezone.now(),
-            "metadata_point": None, # No new data points for this action
-            "holders_point": None,
-            "decision": decision
-        })
-    # #### END OF NEW LOGIC ####
+        # --- 3. THE BREAK STATEMENT IS GONE ---
+        # This ensures the loop always continues for the full 10 minutes.
             
+    print(f"✅ Finished full monitoring period for {token.symbol}")
     return sell_signature, combined_log
 
 # async def run_trade_cycle(public_key, private_key, mint_address, rpc_url):
