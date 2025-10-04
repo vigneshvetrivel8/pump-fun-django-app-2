@@ -49,6 +49,12 @@ def buy(public_key, private_key, mint_address, rpc_url):
         print("#" * 150)
         print(data)
         print("#" * 150)
+        print("tx:", tx)
+        print("*" * 150)
+        print("config:", config)
+        print("*" * 150)
+        print("rpc_response:", rpc_response.json())
+        print("#" * 150)
         
         if 'result' in data:
             txSignature = data['result']
