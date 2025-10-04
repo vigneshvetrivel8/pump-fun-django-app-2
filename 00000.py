@@ -336,7 +336,7 @@ def buy_standard_with_timing(private_key, mint_address, rpc_url):
 
         # 3. Send transaction to standard RPC
         print("\n3. Sending transaction via Standard RPC...")
-        config = RpcSendTransactionConfig(skip_preflight=True)
+        config = RpcSendTransactionConfig(skip_preflight=False)
         start_rpc_time = time.perf_counter()
         rpc_response = requests.post(
             url=rpc_url,
