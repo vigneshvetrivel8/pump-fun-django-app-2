@@ -23,9 +23,9 @@ def buy(public_key, private_key, mint_address, rpc_url):
             "mint": mint_address,
             "amount": 0.01,
             "denominatedInSol": "true",
-            "slippage": 15,
+            "slippage": 25,
             # "priorityFee": 0.00001,
-            "priorityFee": 0.0001,
+            "priorityFee": 0.0005,
             "pool": "auto"
         })
         response.raise_for_status() # Raise an exception for bad status codes
