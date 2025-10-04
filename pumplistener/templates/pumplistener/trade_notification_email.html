@@ -290,11 +290,31 @@
                         {% endwith %}
                     </li>
                 </ul>
+                <!-- <div class="decision">
+                    {% with d=check.decision %}
+                        {% if d.action == 'SELL' %}
+                            <strong style="color: #c0392b;">Decision: SELL</strong><br>
+                            {{ d.reason }}
+                        {% else %}
+                            <strong style="color: #27ae60;">Decision: HOLD</strong><br>
+                            {{ d.reason }}
+                        {% endif %}
+                    {% endwith %}
+                </div> -->
                 <div class="decision">
                     {% with d=check.decision %}
                         {% if d.action == 'SELL' %}
                             <strong style="color: #c0392b;">Decision: SELL</strong><br>
                             {{ d.reason }}
+                            
+                        {% elif d.action == 'SELL_FAILED' %}
+                            <strong style="color: #e67e22;">Decision: SELL FAILED</strong><br>
+                            {{ d.reason }}
+
+                        {% elif 'SIMULATED' in d.action %}
+                            <strong style="color: #8e44ad;">Decision: {{ d.action }}</strong><br>
+                            {{ d.reason }}
+
                         {% else %}
                             <strong style="color: #27ae60;">Decision: HOLD</strong><br>
                             {{ d.reason }}
