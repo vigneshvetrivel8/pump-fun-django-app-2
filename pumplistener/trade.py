@@ -33,29 +33,30 @@ def buy(public_key, private_key, mint_address, rpc_url):
         keypair = Keypair.from_base58_string(private_key)
         tx = VersionedTransaction(VersionedTransaction.from_bytes(response.content).message, [keypair])
 
-        # config = RpcSendTransactionConfig(preflight_commitment=CommitmentLevel.Confirmed)
-        # This saves one full network request, which is a huge speed boost
-        config = RpcSendTransactionConfig(skip_preflight=True)
-        # config = RpcSendTransactionConfig(skip_preflight=False)
+        commitment = CommitmentLevel.Confirmed
+        config = RpcSendTransactionConfig(preflight_commitment=commitment)
+        # Remove the old commitment and config lines and replace them with this:
+        # config = RpcS
+
+        # 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
         
-        rpc_response = requests.post(
+        # #############################################################################################
+        txPayload = SendVersionedTransaction(tx, config)
+
+        response = requests.post(
+            # url="Your RPC Endpoint here - Eg: https://api.mainnet-beta.solana.com/",
+            # url="http://fra-sender.helius-rpc.com/fast",
             url=rpc_url,
             headers={"Content-Type": "application/json"},
             data=SendVersionedTransaction(tx, config).to_json()
         )
-        rpc_response.raise_for_status()
-        
-        data = rpc_response.json()
+
+        data = response.json()
+
         print("#" * 150)
         print(data)
         print("#" * 150)
-        print("tx:", tx)
-        print("*" * 150)
-        print("config:", config)
-        print("*" * 150)
-        print("rpc_response:", rpc_response.json())
-        print("#" * 150)
-        
+
         if 'result' in data:
             txSignature = data['result']
             print(f'✅ BUY successful! Transaction: https://solscan.io/tx/{txSignature}')
@@ -70,6 +71,48 @@ def buy(public_key, private_key, mint_address, rpc_url):
     except Exception as e:
         print(f"❌ An unexpected error occurred in buy(): {e}")
         return None # <-- RETURN NONE ON EXCEPTION
+
+    ######################################################################################################
+
+        # config = RpcSendTransactionConfig(preflight_commitment=CommitmentLevel.Confirmed)
+        # This saves one full network request, which is a huge speed boost
+    #     config = RpcSendTransactionConfig(skip_preflight=True)
+    #     # config = RpcSendTransactionConfig(skip_preflight=False)
+        
+    #     rpc_response = requests.post(
+    #         url=rpc_url,
+    #         headers={"Content-Type": "application/json"},
+    #         data=SendVersionedTransaction(tx, config).to_json()
+    #     )
+    #     rpc_response.raise_for_status()
+        
+    #     data = rpc_response.json()
+    #     print("#" * 150)
+    #     print(data)
+    #     print("#" * 150)
+    #     print("tx:", tx)
+    #     print("*" * 150)
+    #     print("config:", config)
+    #     print("*" * 150)
+    #     print("rpc_response:", rpc_response.json())
+    #     print("#" * 150)
+        
+    #     if 'result' in data:
+    #         txSignature = data['result']
+    #         print(f'✅ BUY successful! Transaction: https://solscan.io/tx/{txSignature}')
+    #         return txSignature # <-- RETURN THE SIGNATURE
+    #     else:
+    #         print(f"❌ BUY failed. Response: {data}")
+    #         return None # <-- RETURN NONE ON FAILURE
+
+    # except requests.exceptions.RequestException as e:
+    #     print(f"❌ An error occurred during the API request: {e}")
+    #     return None # <-- RETURN NONE ON EXCEPTION
+    # except Exception as e:
+    #     print(f"❌ An unexpected error occurred in buy(): {e}")
+    #     return None # <-- RETURN NONE ON EXCEPTION
+    
+    # 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 
 
 def sell(public_key, private_key, mint_address, rpc_url):
@@ -117,7 +160,8 @@ def sell(public_key, private_key, mint_address, rpc_url):
         print(f'✅ SELL successful! Transaction: https://solscan.io/tx/{txSignature}')
         return txSignature # <-- RETURN THE SIGNATURE
     else:
-        print(f"❌ SELL failed. Response: {response.json()}")
+        # print(f"❌ SELL failed. Response: {response.json()}")
+        print(f"❌ SELL failed.")
         return None # <-- RETURN NONE ON FAILURE
     # txSignature = response.json()['result']
     # print(f'Transaction: https://solscan.io/tx/{txSignature}')

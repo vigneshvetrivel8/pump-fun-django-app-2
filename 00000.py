@@ -286,6 +286,7 @@ from solders.transaction import VersionedTransaction
 from solders.rpc.requests import SendVersionedTransaction
 from solders.rpc.config import RpcSendTransactionConfig
 from dotenv import load_dotenv
+from solders.commitment_config import CommitmentLevel
 
 # Load environment variables from your .env file
 load_dotenv()
@@ -336,25 +337,53 @@ def buy_standard_with_timing(private_key, mint_address, rpc_url):
 
         # 3. Send transaction to standard RPC
         print("\n3. Sending transaction via Standard RPC...")
-        config = RpcSendTransactionConfig(skip_preflight=False)
-        start_rpc_time = time.perf_counter()
-        rpc_response = requests.post(
+        # config = RpcSendTransactionConfig(skip_preflight=False)
+        # start_rpc_time = time.perf_counter()
+        # rpc_response = requests.post(
+        #     url=rpc_url,
+        #     headers={"Content-Type": "application/json"},
+        #     data=SendVersionedTransaction(tx, config).to_json()
+        # )
+        # rpc_response.raise_for_status()
+        # end_rpc_time = time.perf_counter()
+        # print(f"  ⏱️ RPC response received in {end_rpc_time - start_rpc_time:.4f} seconds")
+        
+        # data = rpc_response.json()
+        # if 'result' in data:
+        #     txSignature = data['result']
+        #     print(f'\n✅ BUY successful! Signature: {txSignature}')
+        #     return txSignature
+        # else:
+        #     print(f"\n❌ BUY failed. Response: {data}")
+        #     return None
+
+        commitment = CommitmentLevel.Confirmed
+        config = RpcSendTransactionConfig(preflight_commitment=commitment)
+
+        txPayload = SendVersionedTransaction(tx, config)
+
+        response = requests.post(
+            # url="Your RPC Endpoint here - Eg: https://api.mainnet-beta.solana.com/",
+            # url="http://fra-sender.helius-rpc.com/fast",
             url=rpc_url,
             headers={"Content-Type": "application/json"},
             data=SendVersionedTransaction(tx, config).to_json()
         )
-        rpc_response.raise_for_status()
-        end_rpc_time = time.perf_counter()
-        print(f"  ⏱️ RPC response received in {end_rpc_time - start_rpc_time:.4f} seconds")
-        
-        data = rpc_response.json()
+
+        data = response.json()
+
+        print("#" * 150)
+        print(data)
+        print("#" * 150)
+
         if 'result' in data:
             txSignature = data['result']
-            print(f'\n✅ BUY successful! Signature: {txSignature}')
-            return txSignature
+            print(f'✅ BUY successful! Transaction: https://solscan.io/tx/{txSignature}')
+            return txSignature # <-- RETURN THE SIGNATURE
         else:
-            print(f"\n❌ BUY failed. Response: {data}")
-            return None
+            print(f"❌ BUY failed. Response: {data}")
+            return None # <-- RETURN NONE ON FAILURE
+
 
     except Exception as e:
         print(f"❌ An unexpected error occurred: {e}")
