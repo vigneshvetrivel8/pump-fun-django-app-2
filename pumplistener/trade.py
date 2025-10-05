@@ -75,7 +75,7 @@ def buy(public_key, private_key, mint_address, rpc_url):
 
     ######################################################################################################
 
-        config = RpcSendTransactionConfig(preflight_commitment=CommitmentLevel.Confirmed)
+        # config = RpcSendTransactionConfig(preflight_commitment=CommitmentLevel.Confirmed)
         # This saves one full network request, which is a huge speed boost
         config = RpcSendTransactionConfig(skip_preflight=True)
         # config = RpcSendTransactionConfig(skip_preflight=False)
