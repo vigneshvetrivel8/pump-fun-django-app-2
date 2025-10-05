@@ -362,6 +362,8 @@ def buy_standard_with_timing(private_key, mint_address, rpc_url):
 
         txPayload = SendVersionedTransaction(tx, config)
 
+        start_rpc_time = time.perf_counter()
+
         response = requests.post(
             # url="Your RPC Endpoint here - Eg: https://api.mainnet-beta.solana.com/",
             # url="http://fra-sender.helius-rpc.com/fast",
@@ -369,6 +371,9 @@ def buy_standard_with_timing(private_key, mint_address, rpc_url):
             headers={"Content-Type": "application/json"},
             data=SendVersionedTransaction(tx, config).to_json()
         )
+
+        end_rpc_time = time.perf_counter()
+        print(f"  ⏱️ RPC response received in {end_rpc_time - start_rpc_time:.4f} seconds")
 
         data = response.json()
 
