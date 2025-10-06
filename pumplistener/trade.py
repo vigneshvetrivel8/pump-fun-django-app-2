@@ -23,8 +23,8 @@ def buy(public_key, private_key, mint_address, rpc_url):
             "mint": mint_address,
             "amount": 0.01,
             "denominatedInSol": "true",
-            # "slippage": 20,
-            "slippage": 50,
+            "slippage": 20,
+            # "slippage": 50,
             # "priorityFee": 0.00001,
             "priorityFee": 0.00025,
             "pool": "auto"
@@ -40,64 +40,25 @@ def buy(public_key, private_key, mint_address, rpc_url):
         # 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
         
         # #############################################################################################
-    #     commitment = CommitmentLevel.Confirmed
-    #     config = RpcSendTransactionConfig(preflight_commitment=commitment)
-    #     txPayload = SendVersionedTransaction(tx, config)
+        # commitment = CommitmentLevel.Confirmed
+        # config = RpcSendTransactionConfig(preflight_commitment=commitment)
+        config = RpcSendTransactionConfig(preflight_commitment=CommitmentLevel.Confirmed)
+        txPayload = SendVersionedTransaction(tx, config)
 
-    #     response = requests.post(
-    #         # url="Your RPC Endpoint here - Eg: https://api.mainnet-beta.solana.com/",
-    #         # url="http://fra-sender.helius-rpc.com/fast",
-    #         url=rpc_url,
-    #         headers={"Content-Type": "application/json"},
-    #         data=SendVersionedTransaction(tx, config).to_json()
-    #     )
-
-    #     data = response.json()
-
-    #     print("#" * 150)
-    #     print(data)
-    #     print("#" * 150)
-
-    #     if 'result' in data:
-    #         txSignature = data['result']
-    #         print(f'✅ BUY successful! Transaction: https://solscan.io/tx/{txSignature}')
-    #         return txSignature # <-- RETURN THE SIGNATURE
-    #     else:
-    #         print(f"❌ BUY failed. Response: {data}")
-    #         return None # <-- RETURN NONE ON FAILURE
-
-    # except requests.exceptions.RequestException as e:
-    #     print(f"❌ An error occurred during the API request: {e}")
-    #     return None # <-- RETURN NONE ON EXCEPTION
-    # except Exception as e:
-    #     print(f"❌ An unexpected error occurred in buy(): {e}")
-    #     return None # <-- RETURN NONE ON EXCEPTION
-
-    ######################################################################################################
-
-        # config = RpcSendTransactionConfig(preflight_commitment=CommitmentLevel.Confirmed)
-        # This saves one full network request, which is a huge speed boost
-        config = RpcSendTransactionConfig(skip_preflight=True)
-        # config = RpcSendTransactionConfig(skip_preflight=False)
-        
-        rpc_response = requests.post(
+        response = requests.post(
+            # url="Your RPC Endpoint here - Eg: https://api.mainnet-beta.solana.com/",
+            # url="http://fra-sender.helius-rpc.com/fast",
             url=rpc_url,
             headers={"Content-Type": "application/json"},
             data=SendVersionedTransaction(tx, config).to_json()
         )
-        rpc_response.raise_for_status()
-        
-        data = rpc_response.json()
+
+        data = response.json()
+
         print("#" * 150)
         print(data)
         print("#" * 150)
-        print("tx:", tx)
-        print("*" * 150)
-        print("config:", config)
-        print("*" * 150)
-        print("rpc_response:", rpc_response.json())
-        print("#" * 150)
-        
+
         if 'result' in data:
             txSignature = data['result']
             print(f'✅ BUY successful! Transaction: https://solscan.io/tx/{txSignature}')
@@ -112,6 +73,46 @@ def buy(public_key, private_key, mint_address, rpc_url):
     except Exception as e:
         print(f"❌ An unexpected error occurred in buy(): {e}")
         return None # <-- RETURN NONE ON EXCEPTION
+
+    ######################################################################################################
+
+        # config = RpcSendTransactionConfig(preflight_commitment=CommitmentLevel.Confirmed)
+        # This saves one full network request, which is a huge speed boost
+    #     config = RpcSendTransactionConfig(skip_preflight=True)
+    #     # config = RpcSendTransactionConfig(skip_preflight=False)
+        
+    #     rpc_response = requests.post(
+    #         url=rpc_url,
+    #         headers={"Content-Type": "application/json"},
+    #         data=SendVersionedTransaction(tx, config).to_json()
+    #     )
+    #     rpc_response.raise_for_status()
+        
+    #     data = rpc_response.json()
+    #     print("#" * 150)
+    #     print(data)
+    #     print("#" * 150)
+    #     print("tx:", tx)
+    #     print("*" * 150)
+    #     print("config:", config)
+    #     print("*" * 150)
+    #     print("rpc_response:", rpc_response.json())
+    #     print("#" * 150)
+        
+    #     if 'result' in data:
+    #         txSignature = data['result']
+    #         print(f'✅ BUY successful! Transaction: https://solscan.io/tx/{txSignature}')
+    #         return txSignature # <-- RETURN THE SIGNATURE
+    #     else:
+    #         print(f"❌ BUY failed. Response: {data}")
+    #         return None # <-- RETURN NONE ON FAILURE
+
+    # except requests.exceptions.RequestException as e:
+    #     print(f"❌ An error occurred during the API request: {e}")
+    #     return None # <-- RETURN NONE ON EXCEPTION
+    # except Exception as e:
+    #     print(f"❌ An unexpected error occurred in buy(): {e}")
+        # return None # <-- RETURN NONE ON EXCEPTION
     
     # 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 
