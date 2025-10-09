@@ -3907,6 +3907,173 @@ async def execute_trade_strategy(token_websocket_data, public_key, private_key, 
     else:
         print(f"🚨 Could not save token {mint_address} to DB. Cannot start monitoring.")
 
+
+
+
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+
+
+# --- ADD THESE NEW FUNCTIONS TO YOUR LISTENER.PY ---
+
+# IMPORTANT: Add the URL for your new Seller service to your environment variables
+SELLER_SERVICE_URL = os.getenv("SELLER_SERVICE_URL")
+
+@sync_to_async
+def save_buy_record_to_db(token_data):
+    """
+    Saves a simple record of the buy transaction. 
+    The full token state is now managed by the Seller service.
+    """
+    token, created = Token.objects.get_or_create(
+        mint_address=token_data['mint_address'],
+        defaults=token_data
+    )
+    if created:
+        print(f"✅ Saved BUY record to local DB: {token.symbol}")
+    return token
+
+# async def execute_trade_and_notify_seller(token_websocket_data, public_key, private_key, rpc_url):
+#     """
+#     This is the new core logic. It buys the token and then makes an API call to the Seller service.
+#     """
+#     mint_address = token_websocket_data.get('mint')
+#     if not mint_address:
+#         print("🚨 Cannot execute trade, mint address is missing.")
+#         return
+
+#     # 1. Execute the BUY transaction.
+#     print(f"📈 Watchlist hit for {token_websocket_data.get('symbol')}. Executing BUY...")
+#     buy_signature = await asyncio.to_thread(trade.buy, public_key, private_key, mint_address, rpc_url)
+#     buy_timestamp = timezone.now()
+
+#     if not buy_signature:
+#         print(f"🚨 BUY FAILED for {mint_address}. Aborting.")
+#         return
+
+#     print(f"✅ BUY successful for {mint_address}. Notifying Seller Service to begin monitoring...")
+
+#     # 2. Notify the Seller Service API.
+#     if not SELLER_SERVICE_URL:
+#         print("🚨 CRITICAL: SELLER_SERVICE_URL environment variable is not set in the Buyer app!")
+#         return
+        
+#     api_endpoint = f"{SELLER_SERVICE_URL}/v1/monitor/start"
+#     payload = {
+#         "mint_address": mint_address,
+#         "buy_transaction_sig": buy_signature
+#     }
+
+#     try:
+#         async with httpx.AsyncClient() as client:
+#             response = await client.post(api_endpoint, json=payload, timeout=20.0)
+#             response.raise_for_status() # Raise an exception for errors
+        
+#         print(f"✅ Successfully notified Seller Service for {mint_address}. Hand-off complete.")
+        
+#         # 3. (Optional) Save a simple record of the buy to your local Django DB.
+#         token_db_data = {
+#             'timestamp': buy_timestamp, 'name': token_websocket_data.get('name', 'N/A'),
+#             'symbol': token_websocket_data.get('symbol', 'N/A'), 'mint_address': mint_address,
+#             'creator_address': token_websocket_data.get('traderPublicKey', 'N/A'),
+#             'is_from_watchlist': True, 'buy_timestamp': buy_timestamp,
+#             'buy_transaction_sig': buy_signature
+#         }
+#         await save_buy_record_to_db(token_db_data)
+        
+#     except httpx.HTTPStatusError as e:
+#         print(f"🚨 Error notifying Seller Service. Status: {e.response.status_code}, Response: {e.response.text}")
+#     except Exception as e:
+#         print(f"🚨 An unexpected error occurred while calling the Seller Service: {e}")
+
+# listener.py in your Django project
+
+async def execute_trade_and_notify_seller(token_websocket_data, public_key, private_key, rpc_url):
+    """
+    This is the new core logic. It buys the token and then makes an API call to the Seller service.
+    """
+    mint_address = token_websocket_data.get('mint')
+    if not mint_address:
+        print("🚨 Cannot execute trade, mint address is missing.")
+        return
+
+    # 1. Execute the BUY transaction.
+    print(f"📈 Watchlist hit for {token_websocket_data.get('symbol')}. Executing BUY...")
+    buy_signature = await asyncio.to_thread(trade.buy, public_key, private_key, mint_address, rpc_url)
+    buy_timestamp = timezone.now()
+
+    if not buy_signature:
+        print(f"🚨 BUY FAILED for {mint_address}. Aborting.")
+        return
+
+    print(f"✅ BUY successful for {mint_address}. Notifying Seller Service to begin monitoring...")
+
+    # 2. Notify the Seller Service API.
+    if not SELLER_SERVICE_URL:
+        print("🚨 CRITICAL: SELLER_SERVICE_URL environment variable is not set in the Buyer app!")
+        return
+        
+    api_endpoint = f"{SELLER_SERVICE_URL}/v1/monitor/start"
+    payload = {
+        "mint_address": mint_address,
+        "buy_transaction_sig": buy_signature
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(api_endpoint, json=payload, timeout=20.0)
+            response.raise_for_status() # Raise an exception for errors
+        
+        print(f"✅ Successfully notified Seller Service for {mint_address}. Hand-off complete.")
+        
+        # 3. Save a simple record of the buy to your local Django DB.
+        token_db_data = {
+            'timestamp': buy_timestamp, 
+            'name': token_websocket_data.get('name', 'N/A'),
+            'symbol': token_websocket_data.get('symbol', 'N/A'), 
+            'mint_address': mint_address,
+            'sol_amount': token_websocket_data.get('solAmount') or 0, # <-- THIS IS THE FIX
+            'creator_address': token_websocket_data.get('traderPublicKey', 'N/A'),
+            'is_from_watchlist': True, 
+            'buy_timestamp': buy_timestamp,
+            'buy_transaction_sig': buy_signature
+        }
+        await save_buy_record_to_db(token_db_data)
+        
+    except Exception as e:
+        # This will now print the specific database error
+        print(f"🚨 An error occurred after notifying the Seller Service (likely a DB save issue): {e}")
+
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+# 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
+
+
 # --- MAIN LISTENER LOOP ---
 async def pump_fun_listener():
     print("🎧 Starting Pump.fun WebSocket listener...")
@@ -3916,7 +4083,7 @@ async def pump_fun_listener():
             print("✅ WebSocket Connected and Subscribed.")
             # --- TEMPORARY TEST FLAG ---
             # 0000000000000000000000000000000000000000
-            # has_triggered_test = False
+            has_triggered_test = False
             # 00000000000000000000000000000000000000000
             while True:
                 message = await websocket.recv()
@@ -3924,15 +4091,19 @@ async def pump_fun_listener():
                 if data and data.get('txType') == 'create':
                     creator_address = data.get('traderPublicKey', 'N/A')
                     
-                    if creator_address in WATCHLIST_CREATORS:
+                    # if creator_address in WATCHLIST_CREATORS:
                     # 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-                    # if not has_triggered_test:
-                        # has_triggered_test = True # Set flag so it only runs once
+                    if not has_triggered_test:
+                        has_triggered_test = True # Set flag so it only runs once
                     # 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
                         ############################################################################################
                         # If it's a watchlist token, start the entire non-blocking strategy.
+                        # asyncio.create_task(
+                        #     execute_trade_strategy(data, PUBLIC_KEY, PRIVATE_KEY, RPC_URL)
+                        # )
+
                         asyncio.create_task(
-                            execute_trade_strategy(data, PUBLIC_KEY, PRIVATE_KEY, RPC_URL)
+                            execute_trade_and_notify_seller(data, PUBLIC_KEY, PRIVATE_KEY, RPC_URL)
                         )
                         ############################################################################################
                         # TO Disable trading, we may comment out the above section, and execute only data saving below.

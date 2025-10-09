@@ -22,6 +22,8 @@ class Token(models.Model):
     peak_holder_count = models.IntegerField(null=True, blank=True)
     sell_market_cap = models.FloatField(null=True, blank=True)
     # --- END OF NEW FIELDS ---
+        # --- ADD THIS LINE ---
+    buy_transaction_sig = models.CharField(max_length=150, null=True, blank=True)
 
     def __str__(self):
         return f"{self.name} ({self.symbol})"
