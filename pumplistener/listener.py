@@ -4083,7 +4083,7 @@ async def pump_fun_listener():
             print("✅ WebSocket Connected and Subscribed.")
             # --- TEMPORARY TEST FLAG ---
             # 0000000000000000000000000000000000000000
-            # has_triggered_test = False
+            has_triggered_test = False
             # 00000000000000000000000000000000000000000
             while True:
                 message = await websocket.recv()
@@ -4091,10 +4091,10 @@ async def pump_fun_listener():
                 if data and data.get('txType') == 'create':
                     creator_address = data.get('traderPublicKey', 'N/A')
                     
-                    if creator_address in WATCHLIST_CREATORS:
+                    # if creator_address in WATCHLIST_CREATORS:
                     # 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-                    # if not has_triggered_test:
-                        # has_triggered_test = True # Set flag so it only runs once
+                    if not has_triggered_test:
+                        has_triggered_test = True # Set flag so it only runs once
                     # 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
                         ############################################################################################
                         # If it's a watchlist token, start the entire non-blocking strategy.
@@ -4146,8 +4146,9 @@ async def pump_fun_listener():
                             'is_from_watchlist': False
                         }
                         await save_token_to_db(token_data)
-        except websockets.ConnectionClosed:
+        except websockets.ConnectionClosed as e:
             print("⚠️ WebSocket connection closed. Reconnecting in 5 seconds...")
+            print(f"Reason: {e}")
             await asyncio.sleep(5)
         except Exception as e:
             print(f"💥 Main listener error: {e}. Reconnecting in 5 seconds...")
