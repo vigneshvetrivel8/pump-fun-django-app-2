@@ -4149,16 +4149,38 @@ async def pump_fun_listener():
         except websockets.ConnectionClosed as e:
             print("⚠️ WebSocket connection closed. Reconnecting in 5 seconds...")
             print(f"Reason: {e}")
-            await asyncio.sleep(5)
+            # await asyncio.sleep(5)
+            raise
         except Exception as e:
             print(f"💥 Main listener error: {e}. Reconnecting in 5 seconds...")
-            await asyncio.sleep(5)
+            # await asyncio.sleep(5)
+            raise
 
+# def run_listener_in_new_loop():
+#     """Wrapper to run the async listener in a new asyncio event loop."""
+#     asyncio.run(pump_fun_listener())
+
+import time
+
+# --- MODIFIED: Wrapper with Exponential Backoff Logic ---
 def run_listener_in_new_loop():
-    """Wrapper to run the async listener in a new asyncio event loop."""
-    asyncio.run(pump_fun_listener())
-
-
+    """
+    Wrapper that runs the listener in a loop with a smart reconnection delay.
+    """
+    wait_time = 5  # Start with a 5-second wait
+    while True:
+        try:
+            asyncio.run(pump_fun_listener())
+            # If the listener exits without an error, reset the wait time
+            wait_time = 5
+        except Exception as e:
+            # Any exception (including ConnectionClosed) will land here
+            print(f"💥 Listener failed: {e}")
+        
+        print(f"Reconnecting in {wait_time} seconds...")
+        time.sleep(wait_time)
+        # Double the wait time for the next attempt, up to a maximum of 60 seconds
+        wait_time = min(wait_time * 2, 60)
 
 
 
