@@ -4084,9 +4084,9 @@ async def pump_fun_listener():
             await websocket.send(json.dumps({"method": "subscribeNewToken"}))
             print("✅ WebSocket Connected and Subscribed.")
             # --- TEMPORARY TEST FLAG ---
-            # 0000000000000000000000000000000000000000
-            has_triggered_test = False
             # 00000000000000000000000000000000000000000
+            has_triggered_test = False
+            # 000000000000000000000000000000000000000000
             while True:
                 message = await websocket.recv()
                 data = json.loads(message)
