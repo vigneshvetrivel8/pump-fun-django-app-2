@@ -4006,6 +4006,8 @@ async def execute_trade_and_notify_seller(token_websocket_data, public_key, priv
     This is the new core logic. It buys the token and then makes an API call to the Seller service.
     """
     mint_address = token_websocket_data.get('mint')
+    # for testing 
+    # mint_address = "6ePaY6VSmLWCRyCYovj2jicqGtM8xJW8xNabLskCj3Gr"
     if not mint_address:
         print("🚨 Cannot execute trade, mint address is missing.")
         return
