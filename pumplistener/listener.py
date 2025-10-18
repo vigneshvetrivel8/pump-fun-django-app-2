@@ -3999,23 +3999,89 @@ def save_buy_record_to_db(token_data):
 #     except Exception as e:
 #         print(f"🚨 An unexpected error occurred while calling the Seller Service: {e}")
 
+# ######################################################################################################################################################
+
 # listener.py in your Django project
+
+# async def execute_trade_and_notify_seller(token_websocket_data, public_key, private_key, rpc_url):
+#     """
+#     This is the new core logic. It buys the token and then makes an API call to the Seller service.
+#     """
+#     mint_address = token_websocket_data.get('mint')
+#     # for testing 
+#     # mint_address = "6ePaY6VSmLWCRyCYovj2jicqGtM8xJW8xNabLskCj3Gr"
+#     if not mint_address:
+#         print("🚨 Cannot execute trade, mint address is missing.")
+#         return
+
+#     # 1. Execute the BUY transaction.
+#     print(f"📈 Watchlist hit for {token_websocket_data.get('symbol')}. Executing BUY...")
+#     buy_signature = await asyncio.to_thread(trade.buy, public_key, private_key, mint_address, rpc_url)
+#     buy_timestamp = timezone.now()
+
+#     if not buy_signature:
+#         print(f"🚨 BUY FAILED for {mint_address}. Aborting.")
+#         return
+
+#     print(f"✅ BUY successful for {mint_address}. Notifying Seller Service to begin monitoring...")
+
+#     # 2. Notify the Seller Service API.
+#     if not SELLER_SERVICE_URL:
+#         print("🚨 CRITICAL: SELLER_SERVICE_URL environment variable is not set in the Buyer app!")
+#         return
+        
+#     api_endpoint = f"{SELLER_SERVICE_URL}/v1/monitor/start"
+#     payload = {
+#         "mint_address": mint_address,
+#         "buy_transaction_sig": buy_signature
+#     }
+
+#     try:
+#         async with httpx.AsyncClient() as client:
+#             response = await client.post(api_endpoint, json=payload, timeout=20.0)
+#             response.raise_for_status() # Raise an exception for errors
+        
+#         print(f"✅ Successfully notified Seller Service for {mint_address}. Hand-off complete.")
+        
+#         # 3. Save a simple record of the buy to your local Django DB.
+#         token_db_data = {
+#             'timestamp': buy_timestamp, 
+#             'name': token_websocket_data.get('name', 'N/A'),
+#             'symbol': token_websocket_data.get('symbol', 'N/A'), 
+#             'mint_address': mint_address,
+#             'sol_amount': token_websocket_data.get('solAmount') or 0, # <-- THIS IS THE FIX
+#             'creator_address': token_websocket_data.get('traderPublicKey', 'N/A'),
+#             'is_from_watchlist': True, 
+#             'buy_timestamp': buy_timestamp,
+#             'buy_transaction_sig': buy_signature
+#         }
+#         await save_buy_record_to_db(token_db_data)
+        
+#     except Exception as e:
+#         # This will now print the specific database error
+#         print(f"🚨 An error occurred after notifying the Seller Service (likely a DB save issue): {e}")
+
+# *****************************************************************************************************************************************************
+
+# pumplistener/listener.py
+
+# ... (imports and other functions like save_buy_record_to_db remain the same) ...
+
+SELLER_SERVICE_URL = os.getenv("SELLER_SERVICE_URL") # Ensure this is defined
 
 async def execute_trade_and_notify_seller(token_websocket_data, public_key, private_key, rpc_url):
     """
-    This is the new core logic. It buys the token and then makes an API call to the Seller service.
+    Buys the token and notifies the Seller service, now including name and symbol.
     """
     mint_address = token_websocket_data.get('mint')
-    # for testing 
-    # mint_address = "6ePaY6VSmLWCRyCYovj2jicqGtM8xJW8xNabLskCj3Gr"
     if not mint_address:
         print("🚨 Cannot execute trade, mint address is missing.")
         return
 
-    # 1. Execute the BUY transaction.
+    # 1. Execute BUY (unchanged)
     print(f"📈 Watchlist hit for {token_websocket_data.get('symbol')}. Executing BUY...")
     buy_signature = await asyncio.to_thread(trade.buy, public_key, private_key, mint_address, rpc_url)
-    buy_timestamp = timezone.now()
+    buy_timestamp = timezone.now() # Use Django's timezone
 
     if not buy_signature:
         print(f"🚨 BUY FAILED for {mint_address}. Aborting.")
@@ -4023,41 +4089,50 @@ async def execute_trade_and_notify_seller(token_websocket_data, public_key, priv
 
     print(f"✅ BUY successful for {mint_address}. Notifying Seller Service to begin monitoring...")
 
-    # 2. Notify the Seller Service API.
+    # 2. Notify the Seller Service API (MODIFIED PAYLOAD)
     if not SELLER_SERVICE_URL:
-        print("🚨 CRITICAL: SELLER_SERVICE_URL environment variable is not set in the Buyer app!")
+        print("🚨 CRITICAL: SELLER_SERVICE_URL environment variable is not set!")
         return
-        
+
     api_endpoint = f"{SELLER_SERVICE_URL}/v1/monitor/start"
+    # --- ADD name and symbol ---
     payload = {
         "mint_address": mint_address,
-        "buy_transaction_sig": buy_signature
+        "buy_transaction_sig": buy_signature,
+        "name": token_websocket_data.get('name', 'N/A'),
+        "symbol": token_websocket_data.get('symbol', 'N/A')
     }
+    # ---------------------------
 
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(api_endpoint, json=payload, timeout=20.0)
             response.raise_for_status() # Raise an exception for errors
-        
+
         print(f"✅ Successfully notified Seller Service for {mint_address}. Hand-off complete.")
-        
-        # 3. Save a simple record of the buy to your local Django DB.
+
+        # 3. Save local BUY record (unchanged)
         token_db_data = {
-            'timestamp': buy_timestamp, 
+            'timestamp': buy_timestamp,
             'name': token_websocket_data.get('name', 'N/A'),
-            'symbol': token_websocket_data.get('symbol', 'N/A'), 
+            'symbol': token_websocket_data.get('symbol', 'N/A'),
             'mint_address': mint_address,
-            'sol_amount': token_websocket_data.get('solAmount') or 0, # <-- THIS IS THE FIX
+            'sol_amount': token_websocket_data.get('solAmount') or 0,
             'creator_address': token_websocket_data.get('traderPublicKey', 'N/A'),
-            'is_from_watchlist': True, 
+            'is_from_watchlist': True,
             'buy_timestamp': buy_timestamp,
             'buy_transaction_sig': buy_signature
         }
         await save_buy_record_to_db(token_db_data)
-        
+
+    except httpx.HTTPStatusError as e:
+        print(f"🚨 Error notifying Seller Service. Status: {e.response.status_code}, Response: {e.response.text}")
     except Exception as e:
-        # This will now print the specific database error
-        print(f"🚨 An error occurred after notifying the Seller Service (likely a DB save issue): {e}")
+        print(f"🚨 An unexpected error occurred while calling the Seller Service: {e}")
+
+# ... (pump_fun_listener and run_listener_in_new_loop remain the same) ...
+
+# #############################################################################################################################################################
 
 # 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
 # 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789 0123456789
