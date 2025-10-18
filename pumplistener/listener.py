@@ -4077,151 +4077,151 @@ async def execute_trade_and_notify_seller(token_websocket_data, public_key, priv
 
 
 # --- MAIN LISTENER LOOP ---
-# async def pump_fun_listener():
-#     print("🎧 Starting Pump.fun WebSocket listener...")
-#     async for websocket in websockets.connect(PUMPORTAL_WSS):
-#         try:
-#             await websocket.send(json.dumps({"method": "subscribeNewToken"}))
-#             print("✅ WebSocket Connected and Subscribed.")
-#             # --- TEMPORARY TEST FLAG ---
-#             # 00000000000000000000000000000000000000000
-#             # has_triggered_test = False
-#             # 000000000000000000000000000000000000000000
-#             while True:
-#                 message = await websocket.recv()
-#                 data = json.loads(message)
-#                 if data and data.get('txType') == 'create':
-#                     creator_address = data.get('traderPublicKey', 'N/A')
-                    
-#                     if creator_address in WATCHLIST_CREATORS:
-#                     # 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-#                     # if not has_triggered_test:
-#                         # has_triggered_test = True # Set flag so it only runs once
-#                     # 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-#                         ############################################################################################
-#                         # If it's a watchlist token, start the entire non-blocking strategy.
-#                         # asyncio.create_task(
-#                         #     execute_trade_strategy(data, PUBLIC_KEY, PRIVATE_KEY, RPC_URL)
-#                         # )
-
-#                         asyncio.create_task(
-#                             execute_trade_and_notify_seller(data, PUBLIC_KEY, PRIVATE_KEY, RPC_URL)
-#                         )
-#                         ############################################################################################
-#                         # TO Disable trading, we may comment out the above section, and execute only data saving below.
-#                             # --- Add this logic to save the token and start data collection ---
-#                         # token_data = {
-#                         #     'timestamp': timezone.now() + timedelta(hours=5, minutes=30),
-#                         #     'name': data.get('name', 'N/A'),
-#                         #     'symbol': data.get('symbol', 'N/A'),
-#                         #     'mint_address': data.get('mint', 'N/A'),
-#                         #     'sol_amount': data.get('solAmount') or 0,
-#                         #     'creator_address': creator_address,
-#                         #     'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
-#                         #     'is_from_watchlist': True # Still mark it as a watchlist token
-#                         # }
-                        
-#                         # token_object = await save_token_to_db(token_data)
-
-#                         # 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-#                         # await collect_data_for_watchlist_coin(token_object)
-#                         # await send_trade_notification_email(token_object, "N/A", "N/A")
-#                         # 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-
-                        
-#                         # if token_object:
-#                         #     # Start the 5-minute data collection without trading
-#                         #     asyncio.create_task(collect_data_for_watchlist_coin(token_object))
-#                         ############################################################################################
-#                     else:
-#                         # If it's NOT a watchlist token, just save it to the database.
-#                         token_data = {
-#                             # 'timestamp': timezone.now(),
-#                             'timestamp': timezone.now() + timedelta(hours=5, minutes=30),
-#                             'name': data.get('name', 'N/A'),
-#                             'symbol': data.get('symbol', 'N/A'),
-#                             'mint_address': data.get('mint', 'N/A'),
-#                             # 'sol_amount': data.get('solAmount', 0),
-#                             'sol_amount': data.get('solAmount') or 0, # <-- APPLY FIX HERE
-#                             'creator_address': creator_address,
-#                             'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
-#                             'is_from_watchlist': False
-#                         }
-#                         await save_token_to_db(token_data)
-#         except websockets.ConnectionClosed as e:
-#             print("⚠️ WebSocket connection closed. Reconnecting in 5 seconds...")
-#             print(f"Reason: {e}")
-#             # await asyncio.sleep(5)
-#             raise
-#         except Exception as e:
-#             print(f"💥 Main listener error: {e}. Reconnecting in 5 seconds...")
-#             # await asyncio.sleep(5)
-#             raise
-
-# pumplistener/listener.py
-
 async def pump_fun_listener():
     print("🎧 Starting Pump.fun WebSocket listener...")
     async for websocket in websockets.connect(PUMPORTAL_WSS):
         try:
             await websocket.send(json.dumps({"method": "subscribeNewToken"}))
             print("✅ WebSocket Connected and Subscribed.")
-
-#             # 00000000000000000000000000000000000000000
-#             # has_triggered_test = False
-#             # 000000000000000000000000000000000000000000
+            # --- TEMPORARY TEST FLAG ---
+            # 00000000000000000000000000000000000000000
+            # has_triggered_test = False
+            # 000000000000000000000000000000000000000000
             while True:
-                # --- THIS IS THE FIX ---
-                try:
-                    message = await websocket.recv()
-                    data = json.loads(message) # This is the line that can fail
+                message = await websocket.recv()
+                data = json.loads(message)
+                if data and data.get('txType') == 'create':
+                    creator_address = data.get('traderPublicKey', 'N/A')
                     
-                    if data and data.get('txType') == 'create':
-                        creator_address = data.get('traderPublicKey', 'N/A')
+                    if creator_address in WATCHLIST_CREATORS:
+                    # 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+                    # if not has_triggered_test:
+                        # has_triggered_test = True # Set flag so it only runs once
+                    # 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+                        ############################################################################################
+                        # If it's a watchlist token, start the entire non-blocking strategy.
+                        # asyncio.create_task(
+                        #     execute_trade_strategy(data, PUBLIC_KEY, PRIVATE_KEY, RPC_URL)
+                        # )
+
+                        asyncio.create_task(
+                            execute_trade_and_notify_seller(data, PUBLIC_KEY, PRIVATE_KEY, RPC_URL)
+                        )
+                        ############################################################################################
+                        # TO Disable trading, we may comment out the above section, and execute only data saving below.
+                            # --- Add this logic to save the token and start data collection ---
+                        # token_data = {
+                        #     'timestamp': timezone.now() + timedelta(hours=5, minutes=30),
+                        #     'name': data.get('name', 'N/A'),
+                        #     'symbol': data.get('symbol', 'N/A'),
+                        #     'mint_address': data.get('mint', 'N/A'),
+                        #     'sol_amount': data.get('solAmount') or 0,
+                        #     'creator_address': creator_address,
+                        #     'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
+                        #     'is_from_watchlist': True # Still mark it as a watchlist token
+                        # }
                         
-                        if creator_address in WATCHLIST_CREATORS:
-#                     # 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-#                     # if not has_triggered_test:
-#                         # has_triggered_test = True # Set flag so it only runs once
-#                     # 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-                            asyncio.create_task(
-                                execute_trade_and_notify_seller(data, PUBLIC_KEY, PRIVATE_KEY, RPC_URL)
-                            )
-                        else:
-                            # Logic for non-watchlist tokens
-                            token_data = {
-                                'timestamp': timezone.now() + timedelta(hours=5, minutes=30),
-                                'name': data.get('name', 'N/A'),
-                                'symbol': data.get('symbol', 'N/A'),
-                                'mint_address': data.get('mint', 'N/A'),
-                                'sol_amount': data.get('solAmount') or 0,
-                                'creator_address': creator_address,
-                                'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
-                                'is_from_watchlist': False
-                            }
-                            await save_token_to_db(token_data)
-                
-                except json.JSONDecodeError as e:
-                    print(f"⚠️ Error decoding JSON from WebSocket message: {e}. Skipping message.")
-                    continue # Continue to the next message
-                except Exception as e:
-                    print(f"💥 Error processing a message inside the loop: {e}. Skipping message.")
-                    continue # Continue to the next message
-                # --- END OF FIX ---
+                        # token_object = await save_token_to_db(token_data)
 
+                        # 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+                        # await collect_data_for_watchlist_coin(token_object)
+                        # await send_trade_notification_email(token_object, "N/A", "N/A")
+                        # 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+
+                        
+                        # if token_object:
+                        #     # Start the 5-minute data collection without trading
+                        #     asyncio.create_task(collect_data_for_watchlist_coin(token_object))
+                        ############################################################################################
+                    else:
+                        # If it's NOT a watchlist token, just save it to the database.
+                        token_data = {
+                            # 'timestamp': timezone.now(),
+                            'timestamp': timezone.now() + timedelta(hours=5, minutes=30),
+                            'name': data.get('name', 'N/A'),
+                            'symbol': data.get('symbol', 'N/A'),
+                            'mint_address': data.get('mint', 'N/A'),
+                            # 'sol_amount': data.get('solAmount', 0),
+                            'sol_amount': data.get('solAmount') or 0, # <-- APPLY FIX HERE
+                            'creator_address': creator_address,
+                            'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
+                            'is_from_watchlist': False
+                        }
+                        await save_token_to_db(token_data)
         except websockets.ConnectionClosed as e:
-            print(f"⚠️ WebSocket connection closed. Reconnecting...")
+            print("⚠️ WebSocket connection closed. Reconnecting in 5 seconds...")
             print(f"Reason: {e}")
-            raise # Re-raise to trigger the reconnection logic in run_listener_in_new_loop
+            # await asyncio.sleep(5)
+            raise
         except Exception as e:
-            print(f"💥 Main listener error: {e}. Reconnecting...")
-            raise # Re-raise to trigger the reconnection logic
+            print(f"💥 Main listener error: {e}. Reconnecting in 5 seconds...")
+            # await asyncio.sleep(5)
+            raise
 
-# ... (the rest of your listener.py file)
+# pumplistener/listener.py
 
-# def run_listener_in_new_loop():
-#     """Wrapper to run the async listener in a new asyncio event loop."""
-#     asyncio.run(pump_fun_listener())
+# async def pump_fun_listener():
+#     print("🎧 Starting Pump.fun WebSocket listener...")
+#     async for websocket in websockets.connect(PUMPORTAL_WSS):
+#         try:
+#             await websocket.send(json.dumps({"method": "subscribeNewToken"}))
+#             print("✅ WebSocket Connected and Subscribed.")
+
+# #             # 00000000000000000000000000000000000000000
+# #             # has_triggered_test = False
+# #             # 000000000000000000000000000000000000000000
+#             while True:
+#                 # --- THIS IS THE FIX ---
+#                 try:
+#                     message = await websocket.recv()
+#                     data = json.loads(message) # This is the line that can fail
+                    
+#                     if data and data.get('txType') == 'create':
+#                         creator_address = data.get('traderPublicKey', 'N/A')
+                        
+#                         if creator_address in WATCHLIST_CREATORS:
+# #                     # 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+# #                     # if not has_triggered_test:
+# #                         # has_triggered_test = True # Set flag so it only runs once
+# #                     # 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+#                             asyncio.create_task(
+#                                 execute_trade_and_notify_seller(data, PUBLIC_KEY, PRIVATE_KEY, RPC_URL)
+#                             )
+#                         else:
+#                             # Logic for non-watchlist tokens
+#                             token_data = {
+#                                 'timestamp': timezone.now() + timedelta(hours=5, minutes=30),
+#                                 'name': data.get('name', 'N/A'),
+#                                 'symbol': data.get('symbol', 'N/A'),
+#                                 'mint_address': data.get('mint', 'N/A'),
+#                                 'sol_amount': data.get('solAmount') or 0,
+#                                 'creator_address': creator_address,
+#                                 'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
+#                                 'is_from_watchlist': False
+#                             }
+#                             await save_token_to_db(token_data)
+                
+#                 except json.JSONDecodeError as e:
+#                     print(f"⚠️ Error decoding JSON from WebSocket message: {e}. Skipping message.")
+#                     continue # Continue to the next message
+#                 except Exception as e:
+#                     print(f"💥 Error processing a message inside the loop: {e}. Skipping message.")
+#                     continue # Continue to the next message
+#                 # --- END OF FIX ---
+
+#         except websockets.ConnectionClosed as e:
+#             print(f"⚠️ WebSocket connection closed. Reconnecting...")
+#             print(f"Reason: {e}")
+#             raise # Re-raise to trigger the reconnection logic in run_listener_in_new_loop
+#         except Exception as e:
+#             print(f"💥 Main listener error: {e}. Reconnecting...")
+#             raise # Re-raise to trigger the reconnection logic
+
+# # ... (the rest of your listener.py file)
+
+# # def run_listener_in_new_loop():
+# #     """Wrapper to run the async listener in a new asyncio event loop."""
+# #     asyncio.run(pump_fun_listener())
 
 import time
 
