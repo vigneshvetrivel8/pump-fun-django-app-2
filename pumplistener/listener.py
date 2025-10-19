@@ -4160,7 +4160,7 @@ async def pump_fun_listener():
             print("✅ WebSocket Connected and Subscribed.")
             # --- TEMPORARY TEST FLAG ---
             # 00000000000000000000000000000000000000000
-            # has_triggered_test = False
+            has_triggered_test = False
             # 000000000000000000000000000000000000000000
             while True:
                 message = await websocket.recv()
@@ -4168,10 +4168,10 @@ async def pump_fun_listener():
                 if data and data.get('txType') == 'create':
                     creator_address = data.get('traderPublicKey', 'N/A')
                     
-                    if creator_address in WATCHLIST_CREATORS:
+                    # if creator_address in WATCHLIST_CREATORS:
                     # 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-                    # if not has_triggered_test:
-                        # has_triggered_test = True # Set flag so it only runs once
+                    if not has_triggered_test:
+                        has_triggered_test = True # Set flag so it only runs once
                     # 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
                         ############################################################################################
                         # If it's a watchlist token, start the entire non-blocking strategy.
@@ -4235,62 +4235,74 @@ async def pump_fun_listener():
 
 # pumplistener/listener.py
 
-# async def pump_fun_listener():
-#     print("🎧 Starting Pump.fun WebSocket listener...")
-#     async for websocket in websockets.connect(PUMPORTAL_WSS):
-#         try:
-#             await websocket.send(json.dumps({"method": "subscribeNewToken"}))
-#             print("✅ WebSocket Connected and Subscribed.")
+# ... (Imports and other functions like execute_trade_and_notify_seller, save_token_to_db, etc., remain the same) ...
 
-# #             # 00000000000000000000000000000000000000000
-# #             # has_triggered_test = False
-# #             # 000000000000000000000000000000000000000000
-#             while True:
-#                 # --- THIS IS THE FIX ---
-#                 try:
-#                     message = await websocket.recv()
-#                     data = json.loads(message) # This is the line that can fail
-                    
-#                     if data and data.get('txType') == 'create':
-#                         creator_address = data.get('traderPublicKey', 'N/A')
-                        
-#                         if creator_address in WATCHLIST_CREATORS:
-# #                     # 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-# #                     # if not has_triggered_test:
-# #                         # has_triggered_test = True # Set flag so it only runs once
-# #                     # 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-#                             asyncio.create_task(
-#                                 execute_trade_and_notify_seller(data, PUBLIC_KEY, PRIVATE_KEY, RPC_URL)
-#                             )
-#                         else:
-#                             # Logic for non-watchlist tokens
-#                             token_data = {
-#                                 'timestamp': timezone.now() + timedelta(hours=5, minutes=30),
-#                                 'name': data.get('name', 'N/A'),
-#                                 'symbol': data.get('symbol', 'N/A'),
-#                                 'mint_address': data.get('mint', 'N/A'),
-#                                 'sol_amount': data.get('solAmount') or 0,
-#                                 'creator_address': creator_address,
-#                                 'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
-#                                 'is_from_watchlist': False
-#                             }
-#                             await save_token_to_db(token_data)
-                
-#                 except json.JSONDecodeError as e:
-#                     print(f"⚠️ Error decoding JSON from WebSocket message: {e}. Skipping message.")
-#                     continue # Continue to the next message
-#                 except Exception as e:
-#                     print(f"💥 Error processing a message inside the loop: {e}. Skipping message.")
-#                     continue # Continue to the next message
-#                 # --- END OF FIX ---
+# --- MAIN LISTENER LOOP ---
+async def pump_fun_listener():
+    print("🎧 Starting Pump.fun WebSocket listener...")
+    async for websocket in websockets.connect(PUMPORTAL_WSS):
+        try:
+            await websocket.send(json.dumps({"method": "subscribeNewToken"}))
+            print("✅ WebSocket Connected and Subscribed.")
 
-#         except websockets.ConnectionClosed as e:
-#             print(f"⚠️ WebSocket connection closed. Reconnecting...")
-#             print(f"Reason: {e}")
-#             raise # Re-raise to trigger the reconnection logic in run_listener_in_new_loop
-#         except Exception as e:
-#             print(f"💥 Main listener error: {e}. Reconnecting...")
-#             raise # Re-raise to trigger the reconnection logic
+            # --- MODIFIED: Counter for first N trades ---
+            trades_executed_count = 0
+            MAX_TRADES_TO_EXECUTE = 1 # Trade the first 3 coins detected
+            # -------------------------------------------
+
+            while True:
+                message = await websocket.recv() # Add try-except for JSONDecodeError if needed
+
+                try: # Add try-except for message processing
+                    data = json.loads(message)
+                    if data and data.get('txType') == 'create':
+
+                        # --- MODIFIED: Trade if counter is less than the limit ---
+                        if trades_executed_count < MAX_TRADES_TO_EXECUTE:
+                            print(f"✅ Detected coin #{trades_executed_count + 1} ({data.get('symbol', 'N/A')}). Executing trade...")
+                            trades_executed_count += 1 # Increment BEFORE starting task
+
+                            print("=" * 150)
+                            print("data:", data)
+                            print("=" * 150)
+
+                            # Start the trade and notify task for this coin
+                            asyncio.create_task(
+                                execute_trade_and_notify_seller(data, PUBLIC_KEY, PRIVATE_KEY, RPC_URL)
+                            )
+                        # --- END MODIFIED ---
+                        else:
+                            # If we've already executed the max trades, just save the data
+                            print(f"⚪️ Detected coin ({data.get('symbol', 'N/A')}), but already executed {MAX_TRADES_TO_EXECUTE} trades. Saving to DB only.")
+                            token_data = {
+                                'timestamp': timezone.now() + timedelta(hours=5, minutes=30),
+                                'name': data.get('name', 'N/A'),
+                                'symbol': data.get('symbol', 'N/A'),
+                                'mint_address': data.get('mint', 'N/A'),
+                                'sol_amount': data.get('solAmount') or 0,
+                                'creator_address': data.get('traderPublicKey', 'N/A'),
+                                'pump_fun_link': f"https://pump.fun/{data.get('mint', 'N/A')}",
+                                'is_from_watchlist': False # Mark appropriately
+                            }
+                            await save_token_to_db(token_data) # Save record without trading
+
+                except json.JSONDecodeError as e:
+                     print(f"⚠️ Error decoding JSON: {e}. Skipping message.")
+                     continue # Skip to next message
+                except Exception as e:
+                     print(f"💥 Error processing message: {e}. Skipping message.")
+                     continue # Skip to next message
+
+
+        except websockets.ConnectionClosed as e:
+            print(f"⚠️ WebSocket connection closed. Reconnecting...")
+            print(f"Reason: {e}")
+            raise # Trigger reconnection logic in wrapper
+        except Exception as e:
+            print(f"💥 Main listener error: {e}. Reconnecting...")
+            raise # Trigger reconnection logic in wrapper
+
+# ... (run_listener_in_new_loop remains the same) ...
 
 # # ... (the rest of your listener.py file)
 
