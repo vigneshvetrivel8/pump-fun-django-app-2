@@ -27,7 +27,8 @@ def buy(public_key, private_key, mint_address, rpc_url):
             # "slippage": 50,
             # "priorityFee": 0.00001,
             "priorityFee": 0.0001,
-            "pool": "auto"
+            # "pool": "auto",
+            "pool": "pump" 
         })
         response.raise_for_status() # Raise an exception for bad status codes
 
