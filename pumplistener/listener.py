@@ -4247,7 +4247,7 @@ async def pump_fun_listener():
 
             # --- MODIFIED: Counter for first N trades ---
             trades_executed_count = 0
-            MAX_TRADES_TO_EXECUTE = 16 # Trade the first 15 coins detected
+            MAX_TRADES_TO_EXECUTE = 16 # Trade the first 16 coins detected
             # -------------------------------------------
 
             while True:
