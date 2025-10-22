@@ -3134,6 +3134,35 @@ RPC_URL = os.getenv("RPC_URL")
 watchlist_str = os.environ.get('CREATOR_WATCHLIST', '')
 # WATCHLIST_CREATORS = set(filter(None, watchlist_str.split(',')))
 WATCHLIST_CREATORS = set(watchlist_str.split(','))
+
+# [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+# --- NEW: Load Multiple Seller URLs ---
+seller_urls_str = os.getenv("SELLER_SERVICE_URLS", "")
+SELLER_URLS = [url.strip() for url in seller_urls_str.split(',') if url.strip()]
+
+if not SELLER_URLS:
+    raise ValueError("🚨 CRITICAL: SELLER_SERVICE_URLS environment variable is not set or empty in the Buyer app!")
+
+print(f"✅ Loaded {len(SELLER_URLS)} Seller Service URLs for rotation: {SELLER_URLS}")
+
+# --- NEW: Rotation Logic ---
+seller_index_lock = asyncio.Lock()
+current_seller_index = 0
+
+async def get_next_seller_url():
+    """Gets the next seller URL from the list in rotation (task-safe)."""
+    global current_seller_index
+    async with seller_index_lock:
+        if not SELLER_URLS:
+            return None # Should not happen based on check above, but safety first
+        
+        url = SELLER_URLS[current_seller_index]
+        current_seller_index = (current_seller_index + 1) % len(SELLER_URLS) # Move to next index and wrap around
+        return url
+# --- END NEW ---
+
+# [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
 moralis_keys_str = os.environ.get('MORALIS_API_KEYS', '')
 MORALIS_API_KEYS = [key.strip() for key in moralis_keys_str.split(',') if key.strip()]
 if not MORALIS_API_KEYS:
@@ -4069,9 +4098,75 @@ def save_buy_record_to_db(token_data):
 
 SELLER_SERVICE_URL = os.getenv("SELLER_SERVICE_URL") # Ensure this is defined
 
+# async def execute_trade_and_notify_seller(token_websocket_data, public_key, private_key, rpc_url):
+#     """
+#     Buys the token and notifies the Seller service, now including name and symbol.
+#     """
+#     mint_address = token_websocket_data.get('mint')
+#     if not mint_address:
+#         print("🚨 Cannot execute trade, mint address is missing.")
+#         return
+
+#     # 1. Execute BUY (unchanged)
+#     print(f"📈 Watchlist hit for {token_websocket_data.get('symbol')}. Executing BUY...")
+#     buy_signature = await asyncio.to_thread(trade.buy, public_key, private_key, mint_address, rpc_url)
+#     buy_timestamp = timezone.now() # Use Django's timezone
+
+#     if not buy_signature:
+#         print(f"🚨 BUY FAILED for {mint_address}. Aborting.")
+#         return
+
+#     print(f"✅ BUY successful for {mint_address}. Notifying Seller Service to begin monitoring...")
+
+#     # 2. Notify the Seller Service API (MODIFIED PAYLOAD)
+#     if not SELLER_SERVICE_URL:
+#         print("🚨 CRITICAL: SELLER_SERVICE_URL environment variable is not set!")
+#         return
+
+#     api_endpoint = f"{SELLER_SERVICE_URL}/v1/monitor/start"
+#     # --- ADD name and symbol ---
+#     payload = {
+#         "mint_address": mint_address,
+#         "buy_transaction_sig": buy_signature,
+#         "name": token_websocket_data.get('name', 'N/A'),
+#         "symbol": token_websocket_data.get('symbol', 'N/A')
+#     }
+#     # ---------------------------
+
+#     try:
+#         async with httpx.AsyncClient() as client:
+#             response = await client.post(api_endpoint, json=payload, timeout=20.0)
+#             response.raise_for_status() # Raise an exception for errors
+
+#         print(f"✅ Successfully notified Seller Service for {mint_address}. Hand-off complete.")
+
+#         # 3. Save local BUY record (unchanged)
+#         token_db_data = {
+#             'timestamp': buy_timestamp,
+#             'name': token_websocket_data.get('name', 'N/A'),
+#             'symbol': token_websocket_data.get('symbol', 'N/A'),
+#             'mint_address': mint_address,
+#             'sol_amount': token_websocket_data.get('solAmount') or 0,
+#             'creator_address': token_websocket_data.get('traderPublicKey', 'N/A'),
+#             'is_from_watchlist': True,
+#             'buy_timestamp': buy_timestamp,
+#             'buy_transaction_sig': buy_signature
+#         }
+#         await save_buy_record_to_db(token_db_data)
+
+#     except httpx.HTTPStatusError as e:
+#         print(f"🚨 Error notifying Seller Service. Status: {e.response.status_code}, Response: {e.response.text}")
+#     except Exception as e:
+#         print(f"🚨 An unexpected error occurred while calling the Seller Service: {e}")
+
+# ... (pump_fun_listener and run_listener_in_new_loop remain the same) ...
+
+# [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+# --- MODIFIED: Core Trade & Notify Function ---
 async def execute_trade_and_notify_seller(token_websocket_data, public_key, private_key, rpc_url):
     """
-    Buys the token and notifies the Seller service, now including name and symbol.
+    Buys the token and notifies the NEXT Seller service in rotation.
     """
     mint_address = token_websocket_data.get('mint')
     if not mint_address:
@@ -4087,29 +4182,30 @@ async def execute_trade_and_notify_seller(token_websocket_data, public_key, priv
         print(f"🚨 BUY FAILED for {mint_address}. Aborting.")
         return
 
-    print(f"✅ BUY successful for {mint_address}. Notifying Seller Service to begin monitoring...")
-
-    # 2. Notify the Seller Service API (MODIFIED PAYLOAD)
-    if not SELLER_SERVICE_URL:
-        print("🚨 CRITICAL: SELLER_SERVICE_URL environment variable is not set!")
+    # --- NEW: Get the next seller URL ---
+    target_seller_url = await get_next_seller_url()
+    if not target_seller_url:
+        print("🚨 CRITICAL: Could not get a seller URL for rotation!")
         return
+    # --- END NEW ---
 
-    api_endpoint = f"{SELLER_SERVICE_URL}/v1/monitor/start"
-    # --- ADD name and symbol ---
+    print(f"✅ BUY successful for {mint_address}. Notifying Seller at {target_seller_url} to begin monitoring...")
+
+    # 2. Notify the SELECTED Seller Service API
+    api_endpoint = f"{target_seller_url}/v1/monitor/start" # Use the rotated URL
     payload = {
         "mint_address": mint_address,
         "buy_transaction_sig": buy_signature,
         "name": token_websocket_data.get('name', 'N/A'),
         "symbol": token_websocket_data.get('symbol', 'N/A')
     }
-    # ---------------------------
 
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(api_endpoint, json=payload, timeout=20.0)
             response.raise_for_status() # Raise an exception for errors
 
-        print(f"✅ Successfully notified Seller Service for {mint_address}. Hand-off complete.")
+        print(f"✅ Successfully notified Seller Service at {target_seller_url} for {mint_address}. Hand-off complete.")
 
         # 3. Save local BUY record (unchanged)
         token_db_data = {
@@ -4126,11 +4222,15 @@ async def execute_trade_and_notify_seller(token_websocket_data, public_key, priv
         await save_buy_record_to_db(token_db_data)
 
     except httpx.HTTPStatusError as e:
-        print(f"🚨 Error notifying Seller Service. Status: {e.response.status_code}, Response: {e.response.text}")
+        # Log which seller failed
+        print(f"🚨 Error notifying Seller Service at {target_seller_url}. Status: {e.response.status_code}, Response: {e.response.text}")
+    except httpx.RequestError as e:
+        # Handle connection errors etc.
+        print(f"🚨 Could not connect to Seller Service at {target_seller_url}. Error: {e}")
     except Exception as e:
-        print(f"🚨 An unexpected error occurred while calling the Seller Service: {e}")
+        print(f"🚨 An unexpected error occurred while calling Seller Service at {target_seller_url}: {e}")
 
-# ... (pump_fun_listener and run_listener_in_new_loop remain the same) ...
+# [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
 
 # #############################################################################################################################################################
 
@@ -4247,7 +4347,7 @@ async def pump_fun_listener():
 
             # --- MODIFIED: Counter for first N trades ---
             trades_executed_count = 0
-            MAX_TRADES_TO_EXECUTE = 16 # Trade the first 20 coins detected
+            MAX_TRADES_TO_EXECUTE = 10 # Trade the first 20 coins detected
             # -------------------------------------------
 
             while True:
